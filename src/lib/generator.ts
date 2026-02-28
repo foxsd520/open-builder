@@ -106,6 +106,8 @@ export interface GeneratorEvents {
   onComplete?: (result: GenerateResult) => void;
   /** 出错 */
   onError?: (error: Error) => void;
+  /** 上下文压缩，返回压缩后的消息列表 */
+  onCompact?: () => Promise<Message[] | null>;
 }
 
 // ═══════════════════════════════ 默认常量 ═══════════════════════════════════
@@ -330,6 +332,18 @@ const BUILTIN_TOOLS: ToolDefinition[] = [
       parameters: { type: "object", properties: {} },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "compact_context",
+      description:
+        "Compress the conversation context to reduce token usage. " +
+        "Call this when the conversation is getting long and you sense the context may be approaching limits, " +
+        "or when earlier messages contain verbose content no longer needed in full detail. " +
+        "This summarizes older messages while preserving key information.",
+      parameters: { type: "object", properties: {} },
+    },
+  },
 ];
 
 // ════════════════════════════ WebAppGenerator 类 ════════════════════════════
@@ -462,6 +476,22 @@ export class WebAppGenerator {
         }
 
         for (const toolCall of assistantMsg.tool_calls) {
+          if (toolCall.function.name === "compact_context" && this.events.onCompact) {
+            const compacted = await this.events.onCompact();
+            if (compacted) {
+              this.messages = compacted;
+              // Add back the assistant message with tool_calls and the tool result
+              this.messages.push(assistantMsg);
+            }
+            this.messages.push({
+              role: "tool",
+              tool_call_id: toolCall.id,
+              content: compacted ? "OK — context compressed successfully." : "Context compression skipped (not enough messages).",
+            });
+            this.events.onToolResult?.(toolCall.function.name, {}, this.messages[this.messages.length - 1].content as string);
+            continue;
+          }
+
           const { result, changes } = await this.executeTool(toolCall);
 
           this.messages.push({

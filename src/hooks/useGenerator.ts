@@ -8,12 +8,26 @@ import { useSandpackStore } from "../store/sandpack";
 import { TAVILY_TOOLS, createTavilyToolHandler } from "../lib/tavily";
 import { useSnapshotStore } from "../store/snapshot";
 import { mergeMessages } from "../lib/mergeMessages";
-import type { Message, ContentPart, ProjectFiles, AISettings, WebSearchSettings } from "../types";
+import { compressContext as doCompress } from "../lib/compressContext";
+import type { Message, ContentPart, Conversation, ProjectFiles, AISettings, WebSearchSettings } from "../types";
 
 const isErrorMessage = (m: Message) =>
   m.role === "assistant" && typeof m.content === "string" && m.content.startsWith("⚠️");
 
 const removeErrorMessages = (prev: Message[]) => prev.filter((m) => !isErrorMessage(m));
+
+/** Apply compression: return summary + messages after compression point */
+function getMessagesForAPI(conv: Conversation): Message[] {
+  const ctx = conv.compressedContext;
+  if (!ctx) return removeErrorMessages(conv.messages);
+  const recent = removeErrorMessages(conv.messages.slice(ctx.fromIndex));
+  console.log("[compress-debug] fromIndex:", ctx.fromIndex, "total:", conv.messages.length, "recent:", recent.length, "summary:", ctx.summary.slice(0, 60));
+  return [
+    { role: "user", content: `[Previous conversation summary]\n${ctx.summary}` },
+    { role: "assistant", content: "Understood. I'll continue based on the conversation summary above." },
+    ...recent,
+  ];
+}
 
 /** Create a snapshot for the current conversation state */
 function createSnapshotForCurrentState() {
@@ -204,10 +218,21 @@ export function useGenerator({
           },
           onError: (error) => {
             console.error("Generation error:", error);
-            setMessages((prev) => [
-              ...removeErrorMessages(prev),
-              { role: "assistant", content: `⚠️ ${error.message || "Unknown error"}` },
-            ]);
+          },
+          onCompact: async () => {
+            const s = useConversationStore.getState();
+            const conv = s.activeId ? s.conversations[s.activeId] : null;
+            if (!conv) return null;
+            const result = await doCompress(
+              conv.messages,
+              settings.apiUrl,
+              settings.apiKey,
+              settings.model,
+              conv.compressedContext,
+            );
+            if (!result) return null;
+            useConversationStore.getState().setCompressedContext(result);
+            return getMessagesForAPI({ ...conv, compressedContext: result });
           },
         },
         files,
@@ -252,7 +277,7 @@ export function useGenerator({
         const storeState = useConversationStore.getState();
         const activeConv = storeState.activeId ? storeState.conversations[storeState.activeId] : null;
         if (activeConv) {
-          generator.syncMessages(removeErrorMessages(activeConv.messages));
+          generator.syncMessages(getMessagesForAPI(activeConv));
         }
       }
 
@@ -340,13 +365,18 @@ export function useGenerator({
 
   const retry = useCallback(async () => {
     setIsGenerating(true);
-    // Remove the error assistant message from UI
+    // Remove error messages and incomplete tool calls (assistant tool_calls with no matching tool result)
     setMessages((prev) => {
-      const last = prev[prev.length - 1];
-      if (last?.role === "assistant" && typeof last.content === "string" && last.content.startsWith("⚠️")) {
-        return prev.slice(0, -1);
-      }
-      return prev;
+      const toolResultIds = new Set(
+        prev.filter((m) => m.role === "tool").map((m) => m.tool_call_id),
+      );
+      return prev.filter((m) => {
+        if (isErrorMessage(m)) return false;
+        if (m.role === "assistant" && m.tool_calls?.length) {
+          return m.tool_calls.every((tc) => toolResultIds.has(tc.id));
+        }
+        return true;
+      });
     });
     try {
       const generator = getGenerator();
@@ -355,7 +385,7 @@ export function useGenerator({
         const storeState = useConversationStore.getState();
         const activeConv = storeState.activeId ? storeState.conversations[storeState.activeId] : null;
         if (activeConv) {
-          generator.syncMessages(activeConv.messages);
+          generator.syncMessages(getMessagesForAPI(activeConv));
         }
         await generator.retry();
       }
@@ -372,5 +402,36 @@ export function useGenerator({
     }
   }, [getGenerator, setIsGenerating, setMessages]);
 
-  return { generate, stop, retry, updateFiles, deleteFile, renameFile, moveFile };
+  const compressContext = useCallback(async () => {
+    const storeState = useConversationStore.getState();
+    const conv = storeState.activeId ? storeState.conversations[storeState.activeId] : null;
+    if (!conv) return;
+
+    setIsGenerating(true);
+    try {
+      const result = await doCompress(
+        conv.messages,
+        settings.apiUrl,
+        settings.apiKey,
+        settings.model,
+        conv.compressedContext,
+      );
+      if (result) {
+        useConversationStore.getState().setCompressedContext(result);
+      }
+    } catch (err: any) {
+      setMessages((prev) => [
+        ...removeErrorMessages(prev),
+        { role: "assistant", content: `⚠️ ${err?.message || "Compression failed"}` },
+      ]);
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [settings, setMessages, setIsGenerating]);
+
+  const review = useCallback(async () => {
+    await generate("Please review all project files for security vulnerabilities. Use list_files and read_files to examine the code. Report any security issues found with severity and location, or confirm no issues were detected. If issues are found, ask if I should fix them automatically.");
+  }, [generate]);
+
+  return { generate, stop, retry, updateFiles, deleteFile, renameFile, moveFile, compressContext, review };
 }

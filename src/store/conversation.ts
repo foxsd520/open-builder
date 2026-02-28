@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import localforage from "localforage";
 import { useSnapshotStore } from "./snapshot";
-import type { Conversation, Message, ProjectFiles } from "../types";
+import type { Conversation, CompressedContext, Message, ProjectFiles } from "../types";
 
 // ─── localforage storage adapter ─────────────────────────────────────────────
 
@@ -37,10 +37,12 @@ interface ConversationState {
   deleteConversation: (id: string) => void;
   switchConversation: (id: string) => void;
 
+  forkConversation: () => string;
   setMessages: (updater: Updater<Message[]>) => void;
   setFiles: (updater: Updater<ProjectFiles>) => void;
   setTemplate: (updater: Updater<string>) => void;
   setIsProjectInitialized: (updater: Updater<boolean>) => void;
+  setCompressedContext: (ctx: CompressedContext) => void;
   renameConversation: (id: string, title: string) => void;
 }
 
@@ -83,6 +85,25 @@ export const useConversationStore = create<ConversationState>()(
           conversations: { ...s.conversations, [id]: conv },
           activeId: id,
         }));
+        return id;
+      },
+
+      forkConversation: () => {
+        const s = get();
+        const src = s.activeId ? s.conversations[s.activeId] : null;
+        const id = crypto.randomUUID();
+        const conv: Conversation = {
+          id,
+          title: src ? src.title : "新应用",
+          messages: src ? [...src.messages] : [],
+          files: src ? { ...src.files } : {},
+          template: src?.template ?? "vite-react-ts",
+          isProjectInitialized: src?.isProjectInitialized ?? false,
+          compressedContext: src?.compressedContext,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        set({ conversations: { ...s.conversations, [id]: conv }, activeId: id });
         return id;
       },
 
@@ -178,6 +199,19 @@ export const useConversationStore = create<ConversationState>()(
                 ),
                 updatedAt: Date.now(),
               },
+            },
+          };
+        });
+      },
+
+      setCompressedContext: (ctx) => {
+        set((s) => {
+          if (!s.activeId || !s.conversations[s.activeId]) return s;
+          const conv = s.conversations[s.activeId];
+          return {
+            conversations: {
+              ...s.conversations,
+              [s.activeId]: { ...conv, compressedContext: ctx, updatedAt: Date.now() },
             },
           };
         });

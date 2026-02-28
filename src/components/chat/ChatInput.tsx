@@ -1,8 +1,10 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { SendHorizonal, Square, Loader2, ImagePlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useT } from "../../i18n";
+
+const SLASH_COMMANDS = ["new", "fork", "clear", "compact", "review", "retry"] as const;
 
 interface ChatInputProps {
   input: string;
@@ -12,6 +14,7 @@ interface ChatInputProps {
   isGenerating: boolean;
   images: string[];
   onImagesChange: (images: string[]) => void;
+  onSlashCommand: (cmd: string) => void;
 }
 
 export function ChatInput({
@@ -22,11 +25,27 @@ export function ChatInput({
   isGenerating,
   images,
   onImagesChange,
+  onSlashCommand,
 }: ChatInputProps) {
   const t = useT();
   const [isHoveringStop, setIsHoveringStop] = useState(false);
+  const [selectedIdx, setSelectedIdx] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Slash menu: show when input starts with "/" and has no spaces
+  const slashMatch = /^\/(\S*)$/.exec(input);
+  const filteredCmds = useMemo(() => {
+    if (!slashMatch) return [];
+    const q = slashMatch[1].toLowerCase();
+    return SLASH_COMMANDS.filter((c) => c.startsWith(q));
+  }, [slashMatch?.[1]]);
+  const showSlashMenu = filteredCmds.length > 0 && !isGenerating;
+
+  // Reset selection when filtered commands change
+  useEffect(() => {
+    setSelectedIdx(0);
+  }, [filteredCmds.length]);
 
   const autoResize = useCallback(() => {
     const el = textareaRef.current;
@@ -43,6 +62,28 @@ export function ChatInput({
   }, [input]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (showSlashMenu) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSelectedIdx((i) => (i + 1) % filteredCmds.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSelectedIdx((i) => (i - 1 + filteredCmds.length) % filteredCmds.length);
+        return;
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        onSlashCommand(filteredCmds[selectedIdx]);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onChange("");
+        return;
+      }
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       const form = e.currentTarget.closest("form");
@@ -108,6 +149,22 @@ export function ChatInput({
           </div>
         )}
         <div className="relative">
+          {showSlashMenu && (
+            <div className="absolute bottom-full left-0 right-0 mb-1 bg-popover border rounded-lg shadow-md overflow-hidden z-10">
+              {filteredCmds.map((cmd, i) => (
+                <button
+                  key={cmd}
+                  type="button"
+                  className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors cursor-pointer ${i === selectedIdx ? "bg-accent" : "hover:bg-accent/50"}`}
+                  onMouseEnter={() => setSelectedIdx(i)}
+                  onClick={() => onSlashCommand(cmd)}
+                >
+                  <span className="font-mono text-xs text-muted-foreground">{t.slash[cmd].name}</span>
+                  <span className="text-muted-foreground">{t.slash[cmd].desc}</span>
+                </button>
+              ))}
+            </div>
+          )}
           <Textarea
             ref={textareaRef}
             value={input}

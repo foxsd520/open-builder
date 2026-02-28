@@ -73,6 +73,12 @@ export interface ProjectSnapshot {
 
 // ─── Conversation types ──────────────────────────────────────────────────────
 
+/** Compressed context: summary text + the message index where compression starts */
+export interface CompressedContext {
+  summary: string;
+  fromIndex: number;
+}
+
 export interface Conversation {
   id: string;
   title: string;
@@ -80,6 +86,7 @@ export interface Conversation {
   files: _ProjectFiles;
   template: string;
   isProjectInitialized: boolean;
+  compressedContext?: CompressedContext;
   createdAt: number;
   updatedAt: number;
 }

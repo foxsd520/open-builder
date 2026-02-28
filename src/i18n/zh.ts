@@ -70,6 +70,7 @@ export const zh = {
   },
   message: {
     rollback: "回滚",
+    retry: "重试",
     thinking: "思考过程",
   },
   rollback: {
@@ -79,6 +80,19 @@ export const zh = {
     confirmDesc:
       "回滚将把项目文件恢复到此次操作时的状态，此操作不可撤销。确定继续吗？",
     cancel: "取消",
+  },
+  compress: {
+    hint: "对话上下文过长，请压缩后继续",
+    button: "压缩上下文",
+    divider: "上下文已压缩",
+  },
+  slash: {
+    new: { name: "/new", desc: "新建对话" },
+    fork: { name: "/fork", desc: "复制当前对话" },
+    clear: { name: "/clear", desc: "清空上下文" },
+    compact: { name: "/compact", desc: "压缩上下文" },
+    review: { name: "/review", desc: "代码安全审查" },
+    retry: { name: "/retry", desc: "重试上次操作" },
   },
   explorer: {
     files: "文件",

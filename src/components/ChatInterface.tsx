@@ -64,6 +64,9 @@ interface ChatInterfaceProps {
   template: string;
   sandpackKey: number;
   isProjectInitialized: boolean;
+  onCompressContext: () => Promise<void>;
+  onRetry: () => Promise<void>;
+  onReview: () => Promise<void>;
 }
 
 export function ChatInterface({
@@ -78,6 +81,9 @@ export function ChatInterface({
   template,
   sandpackKey,
   isProjectInitialized,
+  onCompressContext,
+  onRetry,
+  onReview,
 }: ChatInterfaceProps) {
   const t = useT();
   const [input, setInput] = useState("");
@@ -87,8 +93,12 @@ export function ChatInterface({
   const mergedMessages = useMergedMessages(messages);
   const isMobile = useIsMobile();
 
-  // Snapshot state
   const activeId = useConversationStore((s) => s.activeId);
+  const compressFromIndex = useConversationStore((s) =>
+    s.activeId
+      ? (s.conversations[s.activeId]?.compressedContext?.fromIndex ?? -1)
+      : -1,
+  );
   const snapshots = useSnapshotStore((s) =>
     activeId ? (s.snapshots[activeId] ?? EMPTY_SNAPSHOTS) : EMPTY_SNAPSHOTS,
   );
@@ -132,6 +142,33 @@ export function ChatInterface({
       setRollbackInfo({ messageId, label });
     },
     [activeId, onSetFiles, messages, flushSnapshotUpdate],
+  );
+
+  const handleSlashCommand = useCallback(
+    (cmd: string) => {
+      setInput("");
+      switch (cmd) {
+        case "new":
+          useConversationStore.getState().createConversation();
+          break;
+        case "fork":
+          useConversationStore.getState().forkConversation();
+          break;
+        case "clear":
+          useConversationStore.getState().setMessages([]);
+          break;
+        case "compact":
+          onCompressContext();
+          break;
+        case "review":
+          onReview();
+          break;
+        case "retry":
+          onRetry();
+          break;
+      }
+    },
+    [onCompressContext, onReview, onRetry],
   );
 
   // Find the last assistant message index for the generating indicator
@@ -196,16 +233,33 @@ export function ChatInterface({
               <EmptyState onSelectSuggestion={setInput} />
             )}
 
-            {mergedMessages.map((msg, i) => {
+            {mergedMessages.map((msg, mi) => {
+              const idx = parseInt(msg.id.split("-").pop()!, 10);
+              // Show divider before the first merged message at or after the compression point
+              const showDivider =
+                compressFromIndex >= 0 &&
+                idx >= compressFromIndex &&
+                (mi === 0 ||
+                  parseInt(mergedMessages[mi - 2].id.split("-").pop()!, 10) <
+                    compressFromIndex);
               return (
-                <MessageBubble
-                  key={msg.id}
-                  message={msg}
-                  isGenerating={isGenerating}
-                  snapshotExists={snapshotMessageIds.has(msg.id)}
-                  onShowDiff={(id) => setDiffMessageId(id)}
-                  onRollback={(id) => setRollbackConfirmId(id)}
-                />
+                <div key={msg.id}>
+                  <MessageBubble
+                    message={msg}
+                    isGenerating={isGenerating}
+                    snapshotExists={snapshotMessageIds.has(msg.id)}
+                    onShowDiff={(id) => setDiffMessageId(id)}
+                    onRollback={(id) => setRollbackConfirmId(id)}
+                    onRetry={onRetry}
+                  />
+                  {showDivider && (
+                    <div className="flex items-center gap-3 my-4 text-xs text-muted-foreground">
+                      <div className="flex-1 border-t" />
+                      <span>{t.compress.divider}</span>
+                      <div className="flex-1 border-t" />
+                    </div>
+                  )}
+                </div>
               );
             })}
 
@@ -225,7 +279,9 @@ export function ChatInterface({
                 <Undo2 className="w-3.5 h-3.5 shrink-0" />
                 <span>
                   {t.rollback.rolledBackTo}
-                  <span className="font-medium">{rollbackInfo.label || t.rollback.initialState}</span>
+                  <span className="font-medium">
+                    {rollbackInfo.label || t.rollback.initialState}
+                  </span>
                 </span>
                 <button
                   onClick={() => setRollbackInfo(null)}
@@ -235,6 +291,24 @@ export function ChatInterface({
                 </button>
               </div>
             )}
+
+            {/* Context compression hint */}
+            {!isGenerating &&
+              messages.length > 0 &&
+              typeof messages[messages.length - 1].content === "string" &&
+              (messages[messages.length - 1].content as string).includes(
+                "context_length_exceeded",
+              ) && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-orange-500/10 border border-orange-500/20 text-xs text-orange-700 dark:text-orange-400">
+                  <span>{t.compress.hint}</span>
+                  <button
+                    onClick={() => onCompressContext()}
+                    className="ml-auto shrink-0 px-2 py-1 rounded bg-orange-500 text-white text-xs hover:bg-orange-600 transition-colors cursor-pointer"
+                  >
+                    {t.compress.button}
+                  </button>
+                </div>
+              )}
 
             <div ref={messagesEndRef} />
           </div>
@@ -247,6 +321,7 @@ export function ChatInterface({
             isGenerating={isGenerating}
             images={images}
             onImagesChange={setImages}
+            onSlashCommand={handleSlashCommand}
           />
         </>
       )}

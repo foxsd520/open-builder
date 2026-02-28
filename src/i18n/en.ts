@@ -78,6 +78,7 @@ export const en: typeof zh = {
   },
   message: {
     rollback: "Rollback",
+    retry: "Retry",
     thinking: "Thinking",
   },
   rollback: {
@@ -87,6 +88,19 @@ export const en: typeof zh = {
     confirmDesc:
       "Rollback will restore project files to the state at the time of this operation. This action cannot be undone. Are you sure?",
     cancel: "Cancel",
+  },
+  compress: {
+    hint: "Conversation context is too long. Please compress to continue.",
+    button: "Compress Context",
+    divider: "Context compressed",
+  },
+  slash: {
+    new: { name: "/new", desc: "New conversation" },
+    fork: { name: "/fork", desc: "Fork conversation" },
+    clear: { name: "/clear", desc: "Clear context" },
+    compact: { name: "/compact", desc: "Compress context" },
+    review: { name: "/review", desc: "Security review" },
+    retry: { name: "/retry", desc: "Retry last operation" },
   },
   explorer: {
     files: "Files",

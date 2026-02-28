@@ -59,7 +59,7 @@ export default function App() {
     setIsProjectInitialized,
   } = useAppState();
 
-  const { generate, stop, updateFiles, deleteFile, renameFile, moveFile } = useGenerator({
+  const { generate, stop, retry, updateFiles, deleteFile, renameFile, moveFile, compressContext, review } = useGenerator({
     settings,
     webSearchSettings,
     files,
@@ -100,6 +100,9 @@ export default function App() {
           template={template}
           sandpackKey={sandpackKey}
           isProjectInitialized={isProjectInitialized}
+          onCompressContext={compressContext}
+          onRetry={retry}
+          onReview={review}
         />
       </div>
 

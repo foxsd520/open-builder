@@ -5,6 +5,7 @@ import {
   Lightbulb,
   GitCompareArrows,
   Undo2,
+  RefreshCw,
 } from "lucide-react";
 import { MarkdownContent } from "./MarkdownContent";
 import { ToolCallCard } from "./ToolCallCard";
@@ -18,6 +19,7 @@ interface MessageBubbleProps {
   snapshotExists?: boolean;
   onShowDiff?: (messageId: string) => void;
   onRollback?: (messageId: string) => void;
+  onRetry?: () => void;
 }
 
 export function MessageBubble({
@@ -27,6 +29,7 @@ export function MessageBubble({
   snapshotExists = false,
   onShowDiff,
   onRollback,
+  onRetry,
 }: MessageBubbleProps) {
   const t = useT();
   if (message.role === "user") {
@@ -63,10 +66,10 @@ export function MessageBubble({
     );
   }
 
-  // Check if the last text block is an error message
-  const lastTextBlock = [...message.blocks]
-    .reverse()
-    .find((b) => b.type === "text") as TextBlock | undefined;
+  // Check if the message contains an error
+  const isError = message.blocks.some(
+    (b) => b.type === "text" && b.content.startsWith("⚠️"),
+  );
 
   return (
     <div className="flex-1 min-w-0 space-y-2">
@@ -92,22 +95,35 @@ export function MessageBubble({
         }
         return null;
       })}
-      {snapshotExists && !(isGenerating && isLastAssistant) && (
+      {(snapshotExists || isError) && !(isGenerating && isLastAssistant) && (
         <div className="flex items-center gap-3 mt-2 pt-2 border-t border-border/30">
-          <button
-            onClick={() => onShowDiff?.(message.id)}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-          >
-            <GitCompareArrows className="w-3.5 h-3.5" />
-            <span>Diff</span>
-          </button>
-          <button
-            onClick={() => onRollback?.(message.id)}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-          >
-            <Undo2 className="w-3.5 h-3.5" />
-            <span>{t.message.rollback}</span>
-          </button>
+          {snapshotExists && (
+            <>
+              <button
+                onClick={() => onShowDiff?.(message.id)}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              >
+                <GitCompareArrows className="w-3.5 h-3.5" />
+                <span>Diff</span>
+              </button>
+              <button
+                onClick={() => onRollback?.(message.id)}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              >
+                <Undo2 className="w-3.5 h-3.5" />
+                <span>{t.message.rollback}</span>
+              </button>
+            </>
+          )}
+          {isError && onRetry && (
+            <button
+              onClick={() => onRetry()}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>{t.message.retry}</span>
+            </button>
+          )}
         </div>
       )}
     </div>
