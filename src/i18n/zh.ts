@@ -100,6 +100,8 @@ export const zh = {
     newFolder: "新建文件夹",
     rename: "重命名",
     delete: "删除",
+    copyPath: "复制路径",
+    download: "下载",
   },
   toolbar: {
     preview: "预览",

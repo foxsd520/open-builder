@@ -108,6 +108,8 @@ export const en: typeof zh = {
     newFolder: "New Folder",
     rename: "Rename",
     delete: "Delete",
+    copyPath: "Copy Path",
+    download: "Download",
   },
   toolbar: {
     preview: "Preview",

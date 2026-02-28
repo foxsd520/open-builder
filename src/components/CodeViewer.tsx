@@ -7,7 +7,6 @@ import {
   SandpackConsole,
 } from "@codesandbox/sandpack-react";
 import type { SandpackPredefinedTemplate } from "@codesandbox/sandpack-react";
-import { dracula } from "@codesandbox/sandpack-themes";
 import { Terminal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -69,7 +68,8 @@ export function CodeViewer({
 
   const handleCreateFolder = (path: string) => {
     const p = path.startsWith("/") ? path.slice(1) : path;
-    if (!files[`${p}/.gitkeep`]) onFileChange(`${p}/.gitkeep`, "");
+    // Use trailing "/" to represent empty folder, no .gitkeep needed
+    if (!files[`${p}/`]) onFileChange(`${p}/`, "");
   };
 
   return (
@@ -86,7 +86,7 @@ export function CodeViewer({
         <SandpackProvider
           key={sandpackKey}
           template={template as SandpackPredefinedTemplate}
-          theme={isDark ? dracula : "light"}
+          theme={isDark ? "dark" : "light"}
           files={sandpackFiles}
           options={{ activeFile: sandpackCurrentFile }}
           style={{ height: "100%" }}

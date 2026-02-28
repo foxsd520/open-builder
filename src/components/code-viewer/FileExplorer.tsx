@@ -11,7 +11,10 @@ import {
   X,
   Pencil,
   Trash2,
+  Copy,
+  Download,
 } from "lucide-react";
+import JSZip from "jszip";
 import { Button } from "@/components/ui/button";
 import {
   ContextMenu,
@@ -39,31 +42,41 @@ function buildFileTree(files: ProjectFiles): FileNode[] {
   const root: FileNode[] = [];
   const folderMap = new Map<string, FileNode>();
 
+  const ensureFolder = (name: string, path: string, level: FileNode[]) => {
+    let folder = folderMap.get(path);
+    if (!folder) {
+      folder = { name, path, type: "folder", children: [] };
+      folderMap.set(path, folder);
+      level.push(folder);
+    }
+    return folder;
+  };
+
   for (const path of Object.keys(files).sort()) {
-    const parts = path.replace(/^\//, "").split("/");
+    const cleaned = path.replace(/^\//, "");
+    // Trailing "/" means empty folder marker — just ensure folders exist
+    if (cleaned.endsWith("/")) {
+      const parts = cleaned.slice(0, -1).split("/");
+      let currentLevel = root;
+      let currentPath = "";
+      for (const part of parts) {
+        currentPath += (currentPath ? "/" : "") + part;
+        currentLevel = ensureFolder(part, currentPath, currentLevel).children!;
+      }
+      continue;
+    }
+
+    const parts = cleaned.split("/");
     let currentLevel = root;
     let currentPath = "";
 
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i];
       currentPath += (currentPath ? "/" : "") + part;
-      const isFile = i === parts.length - 1;
-
-      if (isFile) {
+      if (i === parts.length - 1) {
         currentLevel.push({ name: part, path: currentPath, type: "file" });
       } else {
-        let folder = folderMap.get(currentPath);
-        if (!folder) {
-          folder = {
-            name: part,
-            path: currentPath,
-            type: "folder",
-            children: [],
-          };
-          folderMap.set(currentPath, folder);
-          currentLevel.push(folder);
-        }
-        currentLevel = folder.children!;
+        currentLevel = ensureFolder(part, currentPath, currentLevel).children!;
       }
     }
   }
@@ -98,6 +111,7 @@ export function FileExplorer({
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     new Set(["src"]),
   );
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
 
   // Create state
   const [createState, setCreateState] = useState<{
@@ -142,7 +156,12 @@ export function FileExplorer({
     }
   }, [renamingPath]);
 
+  // Indent: each level shifts by 18px (chevron 14px + gap 4px)
+  const INDENT = 18;
+  const BASE_PAD = 8;
+
   const toggleFolder = (path: string) => {
+    setSelectedFolder(path);
     setExpandedFolders((prev) => {
       const next = new Set(prev);
       next.has(path) ? next.delete(path) : next.add(path);
@@ -161,8 +180,7 @@ export function FileExplorer({
     setRenamingPath(null);
     setCreateState({ type, parent: parentDir });
     setCreateName("");
-    if (parentDir)
-      setExpandedFolders((prev) => new Set(prev).add(parentDir));
+    if (parentDir) setExpandedFolders((prev) => new Set(prev).add(parentDir));
   };
 
   const confirmCreate = () => {
@@ -266,6 +284,38 @@ export function FileExplorer({
     e.dataTransfer.dropEffect = "move";
   };
 
+  // ── Copy path & Download ──
+
+  const copyPath = (path: string) => {
+    navigator.clipboard.writeText(path);
+  };
+
+  const downloadFile = (path: string, content: string) => {
+    const blob = new Blob([content], { type: "text/plain" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = path.split("/").pop()!;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  const downloadFolder = async (folderPath: string) => {
+    const zip = new JSZip();
+    const prefix = folderPath + "/";
+    for (const [path, content] of Object.entries(files)) {
+      const normalized = path.startsWith("/") ? path.slice(1) : path;
+      if (normalized.startsWith(prefix) && !normalized.endsWith("/")) {
+        zip.file(normalized.slice(prefix.length), content);
+      }
+    }
+    const blob = await zip.generateAsync({ type: "blob" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${folderPath.split("/").pop()}.zip`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
   // ── Inline input row (shared by create & rename) ──
 
   const renderInlineInput = ({
@@ -290,8 +340,11 @@ export function FileExplorer({
     level: number;
   }) => (
     <div
-      className="flex items-center gap-1 px-2 py-0.5"
-      style={{ paddingLeft: `${level * 12 + 8}px` }}
+      className="flex items-center gap-1 py-0.5"
+      style={{
+        paddingLeft: `${BASE_PAD + level * INDENT + INDENT}px`,
+        paddingRight: `${BASE_PAD}px`,
+      }}
     >
       {icon}
       <input
@@ -355,8 +408,7 @@ export function FileExplorer({
 
   const renderNode = (node: FileNode, level = 0): React.ReactNode => {
     const isRenaming = renamingPath === node.path;
-    const isCreatingIn =
-      createState && createState.parent === node.path;
+    const isCreatingIn = createState && createState.parent === node.path;
 
     if (node.type === "folder") {
       const isExpanded = expandedFolders.has(node.path);
@@ -368,11 +420,17 @@ export function FileExplorer({
             <ContextMenuTrigger asChild>
               <div
                 className={cn(
-                  "flex items-center gap-1 px-2 py-1 hover:bg-accent/50 cursor-pointer text-sm group",
+                  "flex items-center gap-1 py-1 hover:bg-accent/50 cursor-pointer text-sm group",
                   isCreatingIn && "bg-accent/30",
-                  isDragOver && "bg-blue-100 dark:bg-blue-900/30 outline-dashed outline-1 outline-blue-400",
+                  selectedFolder === node.path &&
+                    "bg-accent text-accent-foreground",
+                  isDragOver &&
+                    "bg-blue-100 dark:bg-blue-900/30 outline-dashed outline-1 outline-blue-400",
                 )}
-                style={{ paddingLeft: `${level * 12 + 8}px` }}
+                style={{
+                  paddingLeft: `${BASE_PAD + level * INDENT}px`,
+                  paddingRight: `${BASE_PAD}px`,
+                }}
                 onClick={() => toggleFolder(node.path)}
                 draggable={!isRenaming}
                 onDragStart={(e) => handleDragStart(e, node)}
@@ -381,9 +439,15 @@ export function FileExplorer({
                 onDrop={(e) => handleDrop(e, node.path)}
               >
                 {isExpanded ? (
-                  <ChevronDown size={14} className="text-muted-foreground shrink-0" />
+                  <ChevronDown
+                    size={14}
+                    className="text-muted-foreground shrink-0"
+                  />
                 ) : (
-                  <ChevronRight size={14} className="text-muted-foreground shrink-0" />
+                  <ChevronRight
+                    size={14}
+                    className="text-muted-foreground shrink-0"
+                  />
                 )}
                 {isExpanded ? (
                   <FolderOpen size={14} className="text-blue-500 shrink-0" />
@@ -435,15 +499,11 @@ export function FileExplorer({
               </div>
             </ContextMenuTrigger>
             <ContextMenuContent className="w-44">
-              <ContextMenuItem
-                onClick={() => startCreate("file", node.path)}
-              >
+              <ContextMenuItem onClick={() => startCreate("file", node.path)}>
                 <FilePlus size={14} />
                 {t.explorer.newFile}
               </ContextMenuItem>
-              <ContextMenuItem
-                onClick={() => startCreate("folder", node.path)}
-              >
+              <ContextMenuItem onClick={() => startCreate("folder", node.path)}>
                 <FolderPlus size={14} />
                 {t.explorer.newFolder}
               </ContextMenuItem>
@@ -451,6 +511,14 @@ export function FileExplorer({
               <ContextMenuItem onClick={() => startRename(node)}>
                 <Pencil size={14} />
                 {t.explorer.rename}
+              </ContextMenuItem>
+              <ContextMenuItem onClick={() => copyPath(node.path)}>
+                <Copy size={14} />
+                {t.explorer.copyPath}
+              </ContextMenuItem>
+              <ContextMenuItem onClick={() => downloadFolder(node.path)}>
+                <Download size={14} />
+                {t.explorer.download}
               </ContextMenuItem>
               <ContextMenuItem
                 variant="destructive"
@@ -478,12 +546,20 @@ export function FileExplorer({
         <ContextMenuTrigger asChild>
           <div
             className={cn(
-              "flex items-center gap-1 px-2 py-1 hover:bg-accent/50 cursor-pointer text-sm",
+              "flex items-center gap-1 py-1 hover:bg-accent/50 cursor-pointer text-sm",
               normalizedCurrentFile === node.path &&
                 "bg-accent text-accent-foreground",
             )}
-            style={{ paddingLeft: `${level * 12 + 22}px` }}
-            onClick={() => !isRenaming && onFileSelect(node.path)}
+            style={{
+              paddingLeft: `${BASE_PAD + level * INDENT}px`,
+              paddingRight: `${BASE_PAD}px`,
+            }}
+            onClick={() => {
+              if (!isRenaming) {
+                setSelectedFolder(null);
+                onFileSelect(node.path);
+              }
+            }}
             draggable={!isRenaming}
             onDragStart={(e) => handleDragStart(e, node)}
           >
@@ -534,6 +610,20 @@ export function FileExplorer({
           <ContextMenuItem onClick={() => startRename(node)}>
             <Pencil size={14} />
             {t.explorer.rename}
+          </ContextMenuItem>
+          <ContextMenuItem onClick={() => copyPath(node.path)}>
+            <Copy size={14} />
+            {t.explorer.copyPath}
+          </ContextMenuItem>
+          <ContextMenuItem
+            onClick={() => {
+              const normalized = node.path.startsWith("/") ? node.path.slice(1) : node.path;
+              const content = files[normalized] ?? files[`/${normalized}`] ?? "";
+              downloadFile(node.path, content);
+            }}
+          >
+            <Download size={14} />
+            {t.explorer.download}
           </ContextMenuItem>
           <ContextMenuItem
             variant="destructive"
