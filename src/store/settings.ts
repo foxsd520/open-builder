@@ -14,12 +14,22 @@ export interface WebSearchSettings {
   tavilyApiUrl: string;
 }
 
+export type Language = "system" | "zh" | "en";
+export type Theme = "system" | "light" | "dark";
+
+export interface SystemSettings {
+  language: Language;
+  theme: Theme;
+}
+
 interface SettingsState {
   ai: AISettings;
   webSearch: WebSearchSettings;
+  system: SystemSettings;
 
   setAI: (settings: AISettings) => void;
   setWebSearch: (settings: WebSearchSettings) => void;
+  setSystem: (settings: SystemSettings) => void;
   isAIValid: () => boolean;
   isWebSearchConfigured: () => boolean;
 }
@@ -38,9 +48,14 @@ export const useSettingsStore = create<SettingsState>()(
         tavilyApiKey: "",
         tavilyApiUrl: "https://api.tavily.com",
       },
+      system: {
+        language: "system" as Language,
+        theme: "system" as Theme,
+      },
 
       setAI: (settings) => set({ ai: settings }),
       setWebSearch: (settings) => set({ webSearch: settings }),
+      setSystem: (settings) => set({ system: settings }),
 
       isAIValid: () => {
         const { ai } = get();
@@ -57,6 +72,7 @@ export const useSettingsStore = create<SettingsState>()(
       partialize: (state) => ({
         ai: state.ai,
         webSearch: state.webSearch,
+        system: state.system,
       }),
     },
   ),

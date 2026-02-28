@@ -5,15 +5,19 @@ import { SettingsDialog } from "./components/SettingsDialog";
 import { useAppState } from "./hooks/useAppState";
 import { useGenerator } from "./hooks/useGenerator";
 import { useIsMobile } from "./hooks/useIsMobile";
+import { useTheme } from "./hooks/useTheme";
 import { useConversationStore } from "./store/conversation";
+import { useT } from "./i18n";
 
 export default function App() {
+  const t = useT();
   const activeId = useConversationStore((s) => s.activeId);
   const hasHydrated = useConversationStore((s) => s._hasHydrated);
   const conversations = useConversationStore((s) => s.conversations);
   const createConversation = useConversationStore((s) => s.createConversation);
   const switchConversation = useConversationStore((s) => s.switchConversation);
   const isMobile = useIsMobile();
+  useTheme();
 
   // On hydration: ensure there's an active conversation
   useEffect(() => {
@@ -45,6 +49,8 @@ export default function App() {
     handleSaveSettings,
     webSearchSettings,
     handleSaveWebSearchSettings,
+    systemSettings,
+    handleSaveSystemSettings,
     template,
     setTemplate,
     sandpackKey,
@@ -74,7 +80,7 @@ export default function App() {
   if (!hasHydrated) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
-        <p className="text-sm text-muted-foreground">加载中...</p>
+        <p className="text-sm text-muted-foreground">{t.app.loading}</p>
       </div>
     );
   }
@@ -116,10 +122,10 @@ export default function App() {
           <div className="text-center max-w-md px-6">
             <div className="text-5xl mb-6">🚀</div>
             <h2 className="text-xl font-semibold text-foreground mb-2">
-              开始构建你的项目
+              {t.app.startBuilding}
             </h2>
             <p className="text-muted-foreground text-sm leading-relaxed">
-              在左侧对话框中描述你想要创建的应用，AI 将为你生成完整的项目代码。
+              {t.app.startBuildingDesc}
             </p>
           </div>
         </div>
@@ -132,6 +138,8 @@ export default function App() {
         onSave={handleSaveSettings}
         webSearchSettings={webSearchSettings}
         onSaveWebSearch={handleSaveWebSearchSettings}
+        systemSettings={systemSettings}
+        onSaveSystem={handleSaveSystemSettings}
       />
     </div>
   );

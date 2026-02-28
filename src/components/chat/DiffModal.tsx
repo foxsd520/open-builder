@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { useSnapshotStore } from "../../store/snapshot";
 import { cn } from "@/lib/utils";
+import { useT } from "../../i18n";
 
 interface DiffModalProps {
   conversationId: string;
@@ -21,6 +22,7 @@ interface ChangedFile {
 }
 
 export function DiffModal({ conversationId, messageId, onClose }: DiffModalProps) {
+  const t = useT();
   const snapshots = useSnapshotStore((s) => s.snapshots[conversationId] ?? []);
   const snapshot = snapshots.find((s) => s.messageId === messageId);
   const snapshotIndex = snapshots.findIndex((s) => s.messageId === messageId);
@@ -65,7 +67,7 @@ export function DiffModal({ conversationId, messageId, onClose }: DiffModalProps
     <Dialog open onOpenChange={() => onClose()}>
       <DialogContent className="sm:max-w-4xl h-[70vh] flex flex-col p-0 gap-0 overflow-hidden">
         <DialogHeader className="px-5 pt-5 pb-3 shrink-0">
-          <DialogTitle>代码变更</DialogTitle>
+          <DialogTitle>{t.diff.title}</DialogTitle>
         </DialogHeader>
 
         {/* Mobile: top file bar + vertical diff */}
@@ -109,7 +111,7 @@ export function DiffModal({ conversationId, messageId, onClose }: DiffModalProps
               <DiffView changes={diffChanges} />
             ) : (
               <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-                选择文件查看变更
+                {t.diff.selectFile}
               </div>
             )}
           </div>

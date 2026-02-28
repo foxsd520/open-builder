@@ -3,12 +3,14 @@ import { Plus, Trash2, MessageSquare, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useConversationStore } from "../../store/conversation";
 import { cn } from "@/lib/utils";
+import { useT } from "../../i18n";
 
 interface SessionListProps {
   onClose: () => void;
 }
 
 export function SessionList({ onClose }: SessionListProps) {
+  const t = useT();
   const conversations = useConversationStore((s) => s.conversations);
   const activeId = useConversationStore((s) => s.activeId);
   const switchConversation = useConversationStore((s) => s.switchConversation);
@@ -64,7 +66,7 @@ export function SessionList({ onClose }: SessionListProps) {
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <div className="px-3 py-2.5 border-b flex items-center justify-between">
-        <span className="text-sm font-medium">会话列表</span>
+        <span className="text-sm font-medium">{t.sessions.title}</span>
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleNew}>
           <Plus size={16} />
         </Button>

@@ -6,19 +6,7 @@ import type {
   ThinkingBlock,
   ToolBlock,
 } from "../types";
-
-const TOOL_NAMES: Record<string, string> = {
-  init_project: "初始化项目",
-  manage_dependencies: "管理依赖",
-  list_files: "列出项目文件",
-  read_files: "读取文件",
-  write_file: "写入文件",
-  patch_file: "修改文件",
-  delete_file: "删除文件",
-  search_in_files: "搜索文件内容",
-  web_search: "搜索网络",
-  web_reader: "读取网页",
-};
+import { getT } from "../i18n";
 
 /** Extract plain text from message content (string or multi-part array) */
 function getTextContent(
@@ -49,6 +37,7 @@ function getImageUrls(
 }
 
 export function mergeMessages(messages: Message[]): MergedMessage[] {
+  const t = getT();
   const merged: MergedMessage[] = [];
 
   for (let i = 0; i < messages.length; i++) {
@@ -122,16 +111,17 @@ export function mergeMessages(messages: Message[]): MergedMessage[] {
               const paths: string[] | undefined = isReadFiles
                 ? (args.paths as string[])
                 : undefined;
+              const toolName = tc.function.name as keyof typeof t.tool.names;
               blocks.push({
                 type: "tool",
                 toolName: tc.function.name,
                 title: isReadFiles
-                  ? `读取 ${paths?.length ?? 0} 个文件`
+                  ? `${t.tool.found}${paths?.length ?? 0} ${t.tool.files}`
                   : isWebSearch
-                    ? `搜索: ${args.query || ""}`
+                    ? `${t.tool.names.web_search}: ${args.query || ""}`
                     : isWebReader
-                      ? `读取 ${(args.urls as string[])?.length ?? 0} 个网页`
-                      : TOOL_NAMES[tc.function.name] || tc.function.name,
+                      ? `${t.tool.found}${(args.urls as string[])?.length ?? 0} ${t.tool.pages}`
+                      : t.tool.names[toolName] || tc.function.name,
                 path: args.path || "",
                 paths,
                 result,

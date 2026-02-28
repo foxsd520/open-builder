@@ -14,6 +14,7 @@ import { mergeMessages } from "../lib/mergeMessages";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { useConversationStore } from "../store/conversation";
 import { useSnapshotStore } from "../store/snapshot";
+import { useT } from "../i18n";
 import type { Message, ProjectFiles, ProjectSnapshot } from "../types";
 
 const EMPTY_SNAPSHOTS: ProjectSnapshot[] = [];
@@ -78,6 +79,7 @@ export function ChatInterface({
   sandpackKey,
   isProjectInitialized,
 }: ChatInterfaceProps) {
+  const t = useT();
   const [input, setInput] = useState("");
   const [images, setImages] = useState<string[]>([]);
   const [showSessionList, setShowSessionList] = useState(false);
@@ -222,8 +224,8 @@ export function ChatInterface({
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-400">
                 <Undo2 className="w-3.5 h-3.5 shrink-0" />
                 <span>
-                  已回滚到：
-                  <span className="font-medium">{rollbackInfo.label || "初始状态"}</span>
+                  {t.rollback.rolledBackTo}
+                  <span className="font-medium">{rollbackInfo.label || t.rollback.initialState}</span>
                 </span>
                 <button
                   onClick={() => setRollbackInfo(null)}
@@ -262,22 +264,22 @@ export function ChatInterface({
       {rollbackConfirmId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-background rounded-lg border p-6 shadow-lg max-w-sm mx-4">
-            <h3 className="text-sm font-semibold mb-2">确认回滚</h3>
+            <h3 className="text-sm font-semibold mb-2">{t.rollback.confirm}</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              回滚将把项目文件恢复到此次操作时的状态，此操作不可撤销。确定继续吗？
+              {t.rollback.confirmDesc}
             </p>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setRollbackConfirmId(null)}
                 className="px-3 py-1.5 text-sm rounded-md border hover:bg-muted transition-colors cursor-pointer"
               >
-                取消
+                {t.rollback.cancel}
               </button>
               <button
                 onClick={() => handleRollback(rollbackConfirmId)}
                 className="px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer"
               >
-                确认回滚
+                {t.rollback.confirm}
               </button>
             </div>
           </div>

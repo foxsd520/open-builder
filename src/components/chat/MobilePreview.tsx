@@ -1,5 +1,7 @@
 import { SandpackProvider, SandpackPreview } from "@codesandbox/sandpack-react";
 import type { SandpackPredefinedTemplate } from "@codesandbox/sandpack-react";
+import { amethyst } from "@codesandbox/sandpack-themes";
+import { useTheme } from "../../hooks/useTheme";
 import type { ProjectFiles } from "../../types";
 
 interface MobilePreviewProps {
@@ -13,6 +15,7 @@ export function MobilePreview({
   template,
   sandpackKey,
 }: MobilePreviewProps) {
+  const isDark = useTheme();
   const sandpackFiles = Object.fromEntries(
     Object.entries(files).map(([path, content]) => [
       path.startsWith("/") ? path : `/${path}`,
@@ -25,7 +28,7 @@ export function MobilePreview({
       <SandpackProvider
         key={sandpackKey}
         template={template as SandpackPredefinedTemplate}
-        theme="light"
+        theme={isDark ? amethyst : "light"}
         files={sandpackFiles}
       >
         <SandpackPreview

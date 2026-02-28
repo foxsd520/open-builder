@@ -28,14 +28,17 @@ export function useAppState() {
   // ── Settings state from zustand ──
   const settings = useSettingsStore((s) => s.ai);
   const webSearchSettings = useSettingsStore((s) => s.webSearch);
+  const systemSettings = useSettingsStore((s) => s.system);
   const setAI = useSettingsStore((s) => s.setAI);
   const setWebSearch = useSettingsStore((s) => s.setWebSearch);
+  const setSystem = useSettingsStore((s) => s.setSystem);
   const isAIValid = useSettingsStore((s) => s.isAIValid);
 
   const hasValidSettings = isAIValid();
 
   const handleSaveSettings = setAI;
   const handleSaveWebSearchSettings = setWebSearch;
+  const handleSaveSystemSettings = setSystem;
 
   // ── Ephemeral UI state ──
   const [currentFile, setCurrentFile] = useState("src/App.tsx");
@@ -63,6 +66,8 @@ export function useAppState() {
     handleSaveSettings,
     webSearchSettings,
     handleSaveWebSearchSettings,
+    systemSettings,
+    handleSaveSystemSettings,
     template,
     setTemplate,
     sandpackKey,

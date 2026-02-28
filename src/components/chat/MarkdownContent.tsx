@@ -1,7 +1,27 @@
-import { memo } from "react";
+import { memo, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
-import "highlight.js/styles/github.min.css";
+import lightCss from "highlight.js/styles/github.min.css?raw";
+import darkCss from "highlight.js/styles/github-dark.min.css?raw";
+import { useTheme } from "../../hooks/useTheme";
+
+const HLJS_STYLE_ID = "hljs-theme";
+
+function HljsTheme() {
+  const isDark = useTheme();
+
+  useEffect(() => {
+    let el = document.getElementById(HLJS_STYLE_ID) as HTMLStyleElement | null;
+    if (!el) {
+      el = document.createElement("style");
+      el.id = HLJS_STYLE_ID;
+      document.head.appendChild(el);
+    }
+    el.textContent = isDark ? darkCss : lightCss;
+  }, [isDark]);
+
+  return null;
+}
 
 const assistantComponents = {
   p: ({ children }: any) => (
@@ -92,12 +112,15 @@ interface MarkdownContentProps {
 
 export const MarkdownContent = memo(
   ({ content, variant }: MarkdownContentProps) => (
-    <ReactMarkdown
-      rehypePlugins={[rehypeHighlight]}
-      components={variant === "user" ? userComponents : assistantComponents}
-    >
-      {content}
-    </ReactMarkdown>
+    <>
+      <HljsTheme />
+      <ReactMarkdown
+        rehypePlugins={[rehypeHighlight]}
+        components={variant === "user" ? userComponents : assistantComponents}
+      >
+        {content}
+      </ReactMarkdown>
+    </>
   ),
 );
 MarkdownContent.displayName = "MarkdownContent";

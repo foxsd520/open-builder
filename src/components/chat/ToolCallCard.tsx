@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { FileTreeView } from "./FileTreeView";
+import { useT } from "../../i18n";
 import type { ToolBlock } from "../../types";
 
 const TOOL_ICONS: Record<string, React.ReactNode> = {
@@ -72,6 +73,7 @@ export function ToolCallCard({
   paths,
   result,
 }: ToolCallCardProps) {
+  const t = useT();
   const [expanded, setExpanded] = useState(false);
   const isSuccess = result && (result.startsWith("OK") || result.includes("✓"));
   const isError =
@@ -106,29 +108,29 @@ export function ToolCallCard({
         </span>
         {toolName === "web_search" && result ? (
           <Badge variant="secondary" className="text-xs font-mono h-5">
-            {searchResultCount} 条结果
+            {searchResultCount} {t.tool.results}
           </Badge>
         ) : toolName === "web_reader" && result ? (
           <Badge variant="secondary" className="text-xs font-mono h-5">
-            {readerUrls.length} 个网页
+            {readerUrls.length} {t.tool.pages}
           </Badge>
         ) : toolName === "get_console_logs" && result ? (
           consoleErrorCount > 0 ? (
             <Badge variant="destructive" className="text-xs font-mono h-5">
-              {consoleErrorCount} 个错误
-              {consoleWarnCount > 0 ? ` · ${consoleWarnCount} 个警告` : ""}
+              {consoleErrorCount} {t.tool.errors}
+              {consoleWarnCount > 0 ? ` · ${consoleWarnCount} ${t.tool.warnings}` : ""}
             </Badge>
           ) : consoleWarnCount > 0 ? (
             <Badge
               variant="secondary"
               className="text-xs font-mono h-5 text-yellow-600"
             >
-              {consoleWarnCount} 个警告
+              {consoleWarnCount} {t.tool.warnings}
             </Badge>
           ) : null
         ) : paths && paths.length > 0 ? (
           <Badge variant="secondary" className="text-xs font-mono h-5">
-            {paths.length} 个文件
+            {paths.length} {t.tool.files}
           </Badge>
         ) : path ? (
           <Badge
@@ -176,11 +178,11 @@ export function ToolCallCard({
             <FileTreeView content={(paths || []).join("\n")} />
           ) : toolName === "read_file" ? (
             <span className="text-xs text-muted-foreground italic">
-              文件内容已隐藏
+              {t.tool.fileHidden}
             </span>
           ) : toolName === "get_console_logs" ? (
             consoleIssues.length === 0 ? (
-              <p className="text-xs text-green-600">无错误或警告</p>
+              <p className="text-xs text-green-600">{t.tool.noIssues}</p>
             ) : (
               <div className="space-y-1">
                 {consoleIssues.map((issue, i) => (
@@ -201,8 +203,8 @@ export function ToolCallCard({
           ) : toolName === "web_search" ? (
             <p className="text-xs text-muted-foreground">
               {result.startsWith("Error")
-                ? `失败: ${result}`
-                : `已找到 ${searchResultCount} 条搜索结果`}
+                ? `${t.tool.failed}${result}`
+                : `${t.tool.found}${searchResultCount} ${t.tool.searchResults}`}
             </p>
           ) : toolName === "web_reader" ? (
             <div className="space-y-0.5">

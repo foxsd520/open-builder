@@ -7,9 +7,12 @@ import {
   SandpackConsole,
 } from "@codesandbox/sandpack-react";
 import type { SandpackPredefinedTemplate } from "@codesandbox/sandpack-react";
+import { dracula } from "@codesandbox/sandpack-themes";
 import { Terminal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useTheme } from "@/hooks/useTheme";
+import { useT } from "../i18n";
 import { SandpackListener } from "./code-viewer/SandpackListener";
 import { ViewToolbar } from "./code-viewer/ViewToolbar";
 import { FileExplorer } from "./code-viewer/FileExplorer";
@@ -39,9 +42,11 @@ export function CodeViewer({
   template,
   sandpackKey,
 }: CodeViewerProps) {
+  const t = useT();
   const [viewMode, setViewMode] = useState<ViewMode>("preview");
   const [deviceSize, setDeviceSize] = useState<DeviceSize>("desktop");
   const [showConsole, setShowConsole] = useState(false);
+  const isDark = useTheme();
 
   const sandpackFiles = Object.fromEntries(
     Object.entries(files).map(([path, content]) => [
@@ -81,7 +86,7 @@ export function CodeViewer({
         <SandpackProvider
           key={sandpackKey}
           template={template as SandpackPredefinedTemplate}
-          theme="light"
+          theme={isDark ? dracula : "light"}
           files={sandpackFiles}
           options={{ activeFile: sandpackCurrentFile }}
           style={{ height: "100%" }}
@@ -126,7 +131,7 @@ export function CodeViewer({
                         size="icon"
                         className="w-7 h-7 rounded-full bg-(--sp-colors-surface2) text-(--sp-colors-clickable) hover:bg-(--sp-colors-surface3) hover:text-(--sp-colors-hover) cursor-pointer"
                         onClick={() => setShowConsole(!showConsole)}
-                        title={showConsole ? "隐藏控制台" : "显示控制台"}
+                        title={showConsole ? t.console.hide : t.console.show}
                       >
                         <Terminal size={16} />
                       </Button>

@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { MarkdownContent } from "./MarkdownContent";
 import { ToolCallCard } from "./ToolCallCard";
+import { useT } from "../../i18n";
 import type { MergedMessage, TextBlock, ImageBlock } from "../../types";
 
 interface MessageBubbleProps {
@@ -27,6 +28,7 @@ export function MessageBubble({
   onShowDiff,
   onRollback,
 }: MessageBubbleProps) {
+  const t = useT();
   if (message.role === "user") {
     const textBlocks = message.blocks.filter(
       (b): b is TextBlock => b.type === "text",
@@ -37,7 +39,7 @@ export function MessageBubble({
 
     return (
       <div className="flex justify-end">
-        <div className="bg-slate-100 px-4 py-2.5 rounded-2xl rounded-tr-sm max-w-[80%]">
+        <div className="bg-secondary px-4 py-2.5 rounded-2xl rounded-tr-sm max-w-[80%]">
           {imageBlocks.length > 0 && (
             <div className="flex gap-2 flex-wrap mb-2">
               {imageBlocks.map((img) => (
@@ -104,7 +106,7 @@ export function MessageBubble({
             className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
           >
             <Undo2 className="w-3.5 h-3.5" />
-            <span>回滚</span>
+            <span>{t.message.rollback}</span>
           </button>
         </div>
       )}
@@ -119,6 +121,7 @@ function ThinkingBlockCard({
   content: string;
   isStreaming: boolean;
 }) {
+  const t = useT();
   const [expanded, setExpanded] = useState(isStreaming);
 
   // Auto-collapse when streaming ends
@@ -127,13 +130,13 @@ function ThinkingBlockCard({
   }, [isStreaming]);
 
   return (
-    <div className="border border-border/50 rounded-lg overflow-hidden text-xs">
+    <div className="border border-border/50 rounded-lg overflow-hidden bg-muted/30">
       <button
         onClick={() => setExpanded((v) => !v)}
         className="flex items-center gap-2 w-full px-3 py-2 text-muted-foreground hover:bg-muted/50 transition-colors"
       >
         <Lightbulb className="w-3.5 h-3.5 text-purple-500" />
-        <span className="font-medium text-foreground">思考过程</span>
+        <span className="font-medium text-xs text-foreground">{t.message.thinking}</span>
         {expanded ? (
           <ChevronDown className="w-3.5 h-3.5 ml-auto" />
         ) : (
@@ -141,7 +144,7 @@ function ThinkingBlockCard({
         )}
       </button>
       {expanded && (
-        <div className="px-3 py-2 text-muted-foreground max-h-60 overflow-y-auto">
+        <div className="thought px-3 py-2 text-xs text-muted-foreground max-h-60 overflow-y-auto">
           <MarkdownContent content={content} variant="assistant" />
         </div>
       )}

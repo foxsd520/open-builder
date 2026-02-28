@@ -21,6 +21,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { cn } from "@/lib/utils";
+import { useT } from "../../i18n";
 import type { ProjectFiles } from "@/types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -93,6 +94,7 @@ export function FileExplorer({
   onDeleteFile,
   onMoveFile,
 }: FileExplorerProps) {
+  const t = useT();
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     new Set(["src"]),
   );
@@ -305,7 +307,7 @@ export function FileExplorer({
       <Button
         variant="ghost"
         size="icon"
-        className="h-5 w-5 shrink-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+        className="h-5 w-5 shrink-0 text-green-600 hover:text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:text-green-300 dark:hover:bg-green-900/30"
         onMouseDown={(e) => {
           e.preventDefault();
           onConfirm();
@@ -368,7 +370,7 @@ export function FileExplorer({
                 className={cn(
                   "flex items-center gap-1 px-2 py-1 hover:bg-accent/50 cursor-pointer text-sm group",
                   isCreatingIn && "bg-accent/30",
-                  isDragOver && "bg-blue-100 outline-dashed outline-1 outline-blue-400",
+                  isDragOver && "bg-blue-100 dark:bg-blue-900/30 outline-dashed outline-1 outline-blue-400",
                 )}
                 style={{ paddingLeft: `${level * 12 + 8}px` }}
                 onClick={() => toggleFolder(node.path)}
@@ -403,7 +405,7 @@ export function FileExplorer({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-5 w-5 shrink-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                      className="h-5 w-5 shrink-0 text-green-600 hover:text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:text-green-300 dark:hover:bg-green-900/30"
                       onMouseDown={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
@@ -437,25 +439,25 @@ export function FileExplorer({
                 onClick={() => startCreate("file", node.path)}
               >
                 <FilePlus size={14} />
-                新建文件
+                {t.explorer.newFile}
               </ContextMenuItem>
               <ContextMenuItem
                 onClick={() => startCreate("folder", node.path)}
               >
                 <FolderPlus size={14} />
-                新建文件夹
+                {t.explorer.newFolder}
               </ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem onClick={() => startRename(node)}>
                 <Pencil size={14} />
-                重命名
+                {t.explorer.rename}
               </ContextMenuItem>
               <ContextMenuItem
                 variant="destructive"
                 onClick={() => onDeleteFile(node.path)}
               >
                 <Trash2 size={14} />
-                删除
+                {t.explorer.delete}
               </ContextMenuItem>
             </ContextMenuContent>
           </ContextMenu>
@@ -501,7 +503,7 @@ export function FileExplorer({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-5 w-5 shrink-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                  className="h-5 w-5 shrink-0 text-green-600 hover:text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:text-green-300 dark:hover:bg-green-900/30"
                   onMouseDown={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -531,14 +533,14 @@ export function FileExplorer({
         <ContextMenuContent className="w-44">
           <ContextMenuItem onClick={() => startRename(node)}>
             <Pencil size={14} />
-            重命名
+            {t.explorer.rename}
           </ContextMenuItem>
           <ContextMenuItem
             variant="destructive"
             onClick={() => onDeleteFile(node.path)}
           >
             <Trash2 size={14} />
-            删除
+            {t.explorer.delete}
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
@@ -549,7 +551,7 @@ export function FileExplorer({
     <div className="h-full flex flex-col bg-background">
       <div className="px-2 py-2 border-b flex items-center justify-between">
         <span className="text-xs font-medium text-muted-foreground uppercase">
-          文件
+          {t.explorer.files}
         </span>
         <div className="flex items-center gap-1">
           <Button
@@ -557,7 +559,7 @@ export function FileExplorer({
             size="icon"
             className="h-6 w-6"
             onClick={() => startCreate("file", getCurrentDirectory())}
-            title="新建文件"
+            title={t.explorer.newFile}
           >
             <FilePlus size={14} />
           </Button>
@@ -566,7 +568,7 @@ export function FileExplorer({
             size="icon"
             className="h-6 w-6"
             onClick={() => startCreate("folder", getCurrentDirectory())}
-            title="新建文件夹"
+            title={t.explorer.newFolder}
           >
             <FolderPlus size={14} />
           </Button>

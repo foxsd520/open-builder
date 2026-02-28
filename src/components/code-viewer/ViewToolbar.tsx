@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
+import { useT } from "../../i18n";
 import type { ProjectFiles } from "@/types";
 
 export type ViewMode = "preview" | "code";
@@ -38,6 +39,7 @@ export function ViewToolbar({
   onDeviceSizeChange,
   files,
 }: ViewToolbarProps) {
+  const t = useT();
   return (
     <div className="h-14 border-b bg-background px-4 flex items-center justify-between shrink-0 z-10">
       <div className="flex items-center gap-1 p-0.5 rounded-lg border">
@@ -48,7 +50,7 @@ export function ViewToolbar({
           className="gap-2"
         >
           <Eye size={16} />
-          预览
+          {t.toolbar.preview}
         </Button>
         <Button
           variant={viewMode === "code" ? "secondary" : "ghost"}
@@ -57,7 +59,7 @@ export function ViewToolbar({
           className="gap-2"
         >
           <Code2 size={16} />
-          代码
+          {t.toolbar.code}
         </Button>
       </div>
 
@@ -68,7 +70,7 @@ export function ViewToolbar({
               variant={deviceSize === "desktop" ? "secondary" : "ghost"}
               size="icon-sm"
               onClick={() => onDeviceSizeChange("desktop")}
-              title="桌面视图"
+              title={t.toolbar.desktop}
               className="desktop"
             >
               <Monitor size={16} />
@@ -77,7 +79,7 @@ export function ViewToolbar({
               variant={deviceSize === "tablet" ? "secondary" : "ghost"}
               size="icon-sm"
               onClick={() => onDeviceSizeChange("tablet")}
-              title="平板视图"
+              title={t.toolbar.tablet}
               className="tablet"
             >
               <Tablet size={16} />
@@ -86,7 +88,7 @@ export function ViewToolbar({
               variant={deviceSize === "mobile" ? "secondary" : "ghost"}
               size="icon-sm"
               onClick={() => onDeviceSizeChange("mobile")}
-              title="手机视图"
+              title={t.toolbar.mobile}
               className="mobile"
             >
               <Smartphone size={16} />
@@ -99,7 +101,7 @@ export function ViewToolbar({
             variant="outline"
             size="icon-sm"
             onClick={() => downloadAsZip(files)}
-            title="下载项目"
+            title={t.toolbar.download}
           >
             <Download size={16} />
           </Button>

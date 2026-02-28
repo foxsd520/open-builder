@@ -1,0 +1,134 @@
+import type { zh } from "./zh";
+
+export const en: typeof zh = {
+  app: {
+    loading: "Loading...",
+    startBuilding: "Start Building Your Project",
+    startBuildingDesc:
+      "Describe the app you want to create in the left chat box, and AI will generate complete project code for you.",
+  },
+  settings: {
+    title: "Settings",
+    tabs: { model: "Model", search: "Web Search", system: "System" },
+    cancel: "Cancel",
+    save: "Save",
+    apiKey: { hint: "Your API key will be saved in browser local storage" },
+    apiUrl: { hint: "OpenAI-compatible API endpoint" },
+    model: {
+      label: "Model Name",
+      hint: "AI model name, e.g. gpt-5.3-codex, deepseek-chat",
+    },
+    webSearch: {
+      desc: "After configuration, AI will be able to search and read web pages",
+    },
+    tavilyKey: {
+      hint: "Optional. Enables web search and web reading after configuration",
+    },
+    tavilyUrl: {
+      hint: "Optional. Uses Tavily official API address by default",
+    },
+    language: {
+      label: "Language",
+      system: "System",
+      zh: "中文",
+      en: "English",
+      hint: "Set the display language",
+    },
+    theme: {
+      label: "Appearance",
+      system: "System",
+      light: "Light",
+      dark: "Dark",
+      hint: "Adjust the app's color scheme",
+    },
+    version: { label: "Version", checkUpdate: "Check for updates" },
+  },
+  empty: {
+    title: "Start Creating Your App",
+    desc: "Tell me what kind of app you want, I'll help you generate complete code",
+    suggestions: {
+      todo: "Create a todo app",
+      weather: "Create a weather card",
+      calculator: "Create a calculator",
+    },
+  },
+  chat: {
+    placeholder: "Describe the app you want...",
+    uploadImage: "Upload image",
+    stopGeneration: "Stop",
+    send: "Send",
+    newApp: "New App",
+  },
+  header: {
+    sessions: "Sessions",
+    openSource: "Source Code",
+    settings: "Settings",
+  },
+  warning: {
+    title: "AI Model Configuration Required",
+    desc: "Please configure your API Key and model settings to get started",
+    openSettings: "Open Settings",
+  },
+  sessions: {
+    title: "Sessions",
+  },
+  diff: {
+    title: "Code Changes",
+    selectFile: "Select a file to view changes",
+  },
+  message: {
+    rollback: "Rollback",
+    thinking: "Thinking",
+  },
+  rollback: {
+    rolledBackTo: "Rolled back to:",
+    initialState: "Initial state",
+    confirm: "Confirm Rollback",
+    confirmDesc:
+      "Rollback will restore project files to the state at the time of this operation. This action cannot be undone. Are you sure?",
+    cancel: "Cancel",
+  },
+  explorer: {
+    files: "Files",
+    newFile: "New File",
+    newFolder: "New Folder",
+    rename: "Rename",
+    delete: "Delete",
+  },
+  toolbar: {
+    preview: "Preview",
+    code: "Code",
+    desktop: "Desktop",
+    tablet: "Tablet",
+    mobile: "Mobile",
+    download: "Download",
+  },
+  console: {
+    hide: "Hide Console",
+    show: "Show Console",
+  },
+  tool: {
+    results: "results",
+    pages: "pages",
+    errors: "errors",
+    warnings: "warnings",
+    files: "files",
+    fileHidden: "File content hidden",
+    noIssues: "No errors or warnings",
+    failed: "Failed: ",
+    found: "Found ",
+    searchResults: "search results",
+    names: {
+      init_project: "Initialize Project",
+      manage_dependencies: "Manage Dependencies",
+      list_files: "List Files",
+      read_files: "Read Files",
+      write_file: "Write File",
+      patch_file: "Patch File",
+      delete_file: "Delete File",
+      search_in_files: "Search Files",
+      web_search: "Web Search",
+      web_reader: "Read Web Page",
+    },
+  },
+};
