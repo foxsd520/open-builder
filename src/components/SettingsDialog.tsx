@@ -104,23 +104,17 @@ export function SettingsDialog({
           </TabsList>
 
           {/* ── 模型设置 ── */}
-          <TabsContent value="model" className="overflow-y-auto py-4 space-y-4">
+          <TabsContent value="model" className="py-4 space-y-4">
             <ModelSettingsTab formData={formData} setFormData={setFormData} />
           </TabsContent>
 
           {/* ── 联网搜索 ── */}
-          <TabsContent
-            value="search"
-            className="overflow-y-auto py-4 space-y-4"
-          >
+          <TabsContent value="search" className="py-4 space-y-4">
             <WebSearchTab form={webSearchForm} setForm={setWebSearchForm} />
           </TabsContent>
 
           {/* ── 系统设置 ── */}
-          <TabsContent
-            value="system"
-            className="overflow-y-auto py-4 space-y-4"
-          >
+          <TabsContent value="system" className="py-4 space-y-4">
             <SystemTab form={systemForm} setForm={setSystemForm} />
           </TabsContent>
         </Tabs>
@@ -369,7 +363,9 @@ function WebSearchTab({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="disabled">{t.settings.webSearch.disabled}</SelectItem>
+            <SelectItem value="disabled">
+              {t.settings.webSearch.disabled}
+            </SelectItem>
             <SelectItem value="tavily">Tavily</SelectItem>
             <SelectItem value="firecrawl">Firecrawl</SelectItem>
           </SelectContent>

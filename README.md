@@ -66,7 +66,7 @@ It also supports building as a desktop app (macOS / Windows / Linux) and mobile 
 
 ### Web Search (Optional)
 
-- Integrated [Tavily](https://tavily.com) API for real-time web search
+- Integrated [Tavily](https://tavily.com), [Firecrawl](https://www.firecrawl.dev) API for real-time web search
 - Web content reading with automatic fallback to [Jina Reader](https://jina.ai/reader/)
 
 ---
@@ -118,12 +118,12 @@ pnpm tauri:android:build
 
 Click the settings button in the top-right corner and fill in:
 
-| Option         | Description                    | Example                                      |
-| -------------- | ------------------------------ | -------------------------------------------- |
-| API Key        | Your AI service API key        | `sk-...`                                     |
-| API URL        | OpenAI-compatible endpoint     | `https://api.openai.com/v1/chat/completions` |
-| Model Name     | Model ID to use                | `gpt-5.3-codex`, `deepseek-chat`             |
-| Tavily API Key | (Optional) Web search feature  | `tvly-...`                                   |
+| Option         | Description                   | Example                                      |
+| -------------- | ----------------------------- | -------------------------------------------- |
+| API Key        | Your AI service API key       | `sk-...`                                     |
+| API URL        | OpenAI-compatible endpoint    | `https://api.openai.com/v1/chat/completions` |
+| Model Name     | Model ID to use               | `gpt-5.3-codex`, `deepseek-chat`             |
+| Tavily API Key | (Optional) Web search feature | `tvly-...`                                   |
 
 > All settings are stored in browser `localStorage` and never leave your device.
 
@@ -145,33 +145,33 @@ User Message → AI Planning → Tool Call → Execute → Return Result → AI 
 
 Built-in tools:
 
-| Tool                  | Description                                  |
-| --------------------- | -------------------------------------------- |
-| `init_project`        | Initialize Sandpack project template         |
-| `manage_dependencies` | Modify package.json to manage dependencies   |
-| `list_files`          | List all project files                       |
-| `read_files`          | Batch read file contents                     |
-| `write_file`          | Create or overwrite a file                   |
-| `patch_file`          | Precise search-and-replace patch             |
-| `delete_file`         | Delete a file                                |
-| `search_in_files`     | Global file content search                   |
-| `web_search`          | Web search (requires Tavily)                 |
-| `web_reader`          | Read web page content                        |
+| Tool                  | Description                                |
+| --------------------- | ------------------------------------------ |
+| `init_project`        | Initialize Sandpack project template       |
+| `manage_dependencies` | Modify package.json to manage dependencies |
+| `list_files`          | List all project files                     |
+| `read_files`          | Batch read file contents                   |
+| `write_file`          | Create or overwrite a file                 |
+| `patch_file`          | Precise search-and-replace patch           |
+| `delete_file`         | Delete a file                              |
+| `search_in_files`     | Global file content search                 |
+| `web_search`          | Web search (requires Tavily)               |
+| `web_reader`          | Read web page content                      |
 
 ### Tech Stack
 
-| Category        | Technology                        |
-| --------------- | --------------------------------- |
-| Framework       | React 19 + TypeScript 5           |
-| Build Tool      | Vite 7                            |
-| Styling         | Tailwind CSS v4                   |
-| UI Components   | shadcn/ui + Radix UI              |
-| Code Sandbox    | Sandpack (CodeSandbox)            |
-| State Mgmt      | Zustand 5                         |
-| Local Storage   | localforage                       |
-| Icons           | Lucide React                      |
-| Markdown        | react-markdown + rehype-highlight |
-| Desktop/Mobile  | Tauri 2                           |
+| Category       | Technology                        |
+| -------------- | --------------------------------- |
+| Framework      | React 19 + TypeScript 5           |
+| Build Tool     | Vite 7                            |
+| Styling        | Tailwind CSS v4                   |
+| UI Components  | shadcn/ui + Radix UI              |
+| Code Sandbox   | Sandpack (CodeSandbox)            |
+| State Mgmt     | Zustand 5                         |
+| Local Storage  | localforage                       |
+| Icons          | Lucide React                      |
+| Markdown       | react-markdown + rehype-highlight |
+| Desktop/Mobile | Tauri 2                           |
 
 ---
 
@@ -181,9 +181,9 @@ Open Builder is compatible with any OpenAI Chat Completions API:
 
 | Provider | Recommended Models                   | API URL                                                              |
 | -------- | ------------------------------------ | -------------------------------------------------------------------- |
-| OpenAI   | `gpt-5.3-codex`, `gpt-5.2`          | `https://api.openai.com/v1/chat/completions`                         |
+| OpenAI   | `gpt-5.3-codex`, `gpt-5.2`           | `https://api.openai.com/v1/chat/completions`                         |
 | DeepSeek | `deepseek-chat`, `deepseek-reasoner` | `https://api.deepseek.com/v1/chat/completions`                       |
-| Qwen     | `qwen-3.5`, `qwen3-coder-plus`      | `https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions` |
+| Qwen     | `qwen-3.5`, `qwen3-coder-plus`       | `https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions` |
 | Moonshot | `kimi-k2.5`                          | `https://api.moonshot.cn/v1/chat/completions`                        |
 | Zhipu AI | `glm-5`                              | `https://open.bigmodel.cn/api/paas/v4/chat/completions`              |
 
@@ -226,11 +226,11 @@ Or manually:
 1. Log in to [Cloudflare Dashboard](https://dash.cloudflare.com/) → Workers & Pages → Create → Worker → Connect to Git
 2. Select the `open-builder` repo with the following build config:
 
-| Option       | Value            |
-| ------------ | ---------------- |
-| Build Command| `pnpm run build` |
-| Output Dir   | `dist`           |
-| Node.js Ver  | `20`             |
+| Option        | Value            |
+| ------------- | ---------------- |
+| Build Command | `pnpm run build` |
+| Output Dir    | `dist`           |
+| Node.js Ver   | `20`             |
 
 ### Netlify
 

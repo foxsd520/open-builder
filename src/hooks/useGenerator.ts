@@ -130,6 +130,12 @@ export function useGenerator({
   const generatorRef = useRef<WebAppGenerator | null>(null);
   const activeId = useConversationStore((s) => s.activeId);
   const prevActiveIdRef = useRef(activeId);
+  const textBufferRef = useRef("");
+  const thinkingBufferRef = useRef("");
+  const typewriterTimerRef = useRef<number | null>(null);
+  const thinkingTimerRef = useRef<number | null>(null);
+  const lastCharTimeRef = useRef(0);
+  const lastThinkingTimeRef = useRef(0);
 
   const getGenerator = useCallback(() => {
     if (!settings.apiKey || !settings.apiBaseUrl || !settings.model) return null;
@@ -188,30 +194,86 @@ export function useGenerator({
         },
         {
           onText: (delta) => {
-            setMessages((prev) => {
-              const last = prev[prev.length - 1];
-              if (last?.role === "assistant") {
-                return [
-                  ...prev.slice(0, -1),
-                  { ...last, content: ((typeof last.content === "string" ? last.content : "") || "") + delta },
-                ];
-              }
-              return [...prev, { role: "assistant", content: delta }];
-            });
+            textBufferRef.current += delta;
+            if (!typewriterTimerRef.current) {
+              const typeChar = (timestamp: number) => {
+                if (timestamp - lastCharTimeRef.current >= 20) {
+                  if (textBufferRef.current.length > 0) {
+                    const char = textBufferRef.current[0];
+                    textBufferRef.current = textBufferRef.current.slice(1);
+                    setMessages((prev) => {
+                      const last = prev[prev.length - 1];
+                      if (last?.role === "assistant") {
+                        return [
+                          ...prev.slice(0, -1),
+                          { ...last, content: ((typeof last.content === "string" ? last.content : "") || "") + char },
+                        ];
+                      }
+                      return [...prev, { role: "assistant", content: char }];
+                    });
+                    lastCharTimeRef.current = timestamp;
+                  }
+                }
+                if (textBufferRef.current.length > 0 || typewriterTimerRef.current) {
+                  typewriterTimerRef.current = requestAnimationFrame(typeChar);
+                } else {
+                  typewriterTimerRef.current = null;
+                }
+              };
+              typewriterTimerRef.current = requestAnimationFrame(typeChar);
+            }
           },
           onThinking: (delta) => {
-            setMessages((prev) => {
-              const last = prev[prev.length - 1];
-              if (last?.role === "assistant") {
-                return [
-                  ...prev.slice(0, -1),
-                  { ...last, thinking: (last.thinking || "") + delta },
-                ];
-              }
-              return [...prev, { role: "assistant", content: null, thinking: delta }];
-            });
+            thinkingBufferRef.current += delta;
+            if (!thinkingTimerRef.current) {
+              const typeThinking = (timestamp: number) => {
+                if (timestamp - lastThinkingTimeRef.current >= 20) {
+                  if (thinkingBufferRef.current.length > 0) {
+                    const char = thinkingBufferRef.current[0];
+                    thinkingBufferRef.current = thinkingBufferRef.current.slice(1);
+                    setMessages((prev) => {
+                      const last = prev[prev.length - 1];
+                      if (last?.role === "assistant") {
+                        return [
+                          ...prev.slice(0, -1),
+                          { ...last, thinking: (last.thinking || "") + char },
+                        ];
+                      }
+                      return [...prev, { role: "assistant", content: null, thinking: char }];
+                    });
+                    lastThinkingTimeRef.current = timestamp;
+                  }
+                }
+                if (thinkingBufferRef.current.length > 0 || thinkingTimerRef.current) {
+                  thinkingTimerRef.current = requestAnimationFrame(typeThinking);
+                } else {
+                  thinkingTimerRef.current = null;
+                }
+              };
+              thinkingTimerRef.current = requestAnimationFrame(typeThinking);
+            }
           },
           onToolCall: (name, id) => {
+            // Flush text buffer before tool call to prevent text insertion issues
+            if (typewriterTimerRef.current) {
+              cancelAnimationFrame(typewriterTimerRef.current);
+              typewriterTimerRef.current = null;
+            }
+            if (textBufferRef.current) {
+              const remainingText = textBufferRef.current;
+              textBufferRef.current = "";
+              setMessages((prev) => {
+                const last = prev[prev.length - 1];
+                if (last?.role === "assistant") {
+                  return [
+                    ...prev.slice(0, -1),
+                    { ...last, content: ((typeof last.content === "string" ? last.content : "") || "") + remainingText },
+                  ];
+                }
+                return prev;
+              });
+            }
+
             const actualId = id || `call_${Math.random().toString(36).substring(2, 11)}`;
             setMessages((prev) => {
               const last = prev[prev.length - 1];
@@ -279,6 +341,32 @@ export function useGenerator({
             restartSandpack();
           },
           onComplete: () => {
+            if (typewriterTimerRef.current) {
+              cancelAnimationFrame(typewriterTimerRef.current);
+              typewriterTimerRef.current = null;
+            }
+            if (thinkingTimerRef.current) {
+              cancelAnimationFrame(thinkingTimerRef.current);
+              thinkingTimerRef.current = null;
+            }
+            if (textBufferRef.current || thinkingBufferRef.current) {
+              setMessages((prev) => {
+                const last = prev[prev.length - 1];
+                if (last?.role === "assistant") {
+                  return [
+                    ...prev.slice(0, -1),
+                    {
+                      ...last,
+                      content: textBufferRef.current ? ((typeof last.content === "string" ? last.content : "") || "") + textBufferRef.current : last.content,
+                      thinking: thinkingBufferRef.current ? (last.thinking || "") + thinkingBufferRef.current : last.thinking
+                    },
+                  ];
+                }
+                return prev;
+              });
+              textBufferRef.current = "";
+              thinkingBufferRef.current = "";
+            }
             createSnapshotForCurrentState();
 
             // Smart naming: generate title if still using default
@@ -408,6 +496,32 @@ export function useGenerator({
   );
 
   const stop = useCallback(() => {
+    if (typewriterTimerRef.current) {
+      cancelAnimationFrame(typewriterTimerRef.current);
+      typewriterTimerRef.current = null;
+    }
+    if (thinkingTimerRef.current) {
+      cancelAnimationFrame(thinkingTimerRef.current);
+      thinkingTimerRef.current = null;
+    }
+    if (textBufferRef.current || thinkingBufferRef.current) {
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.role === "assistant") {
+          return [
+            ...prev.slice(0, -1),
+            {
+              ...last,
+              content: textBufferRef.current ? ((typeof last.content === "string" ? last.content : "") || "") + textBufferRef.current : last.content,
+              thinking: thinkingBufferRef.current ? (last.thinking || "") + thinkingBufferRef.current : last.thinking
+            },
+          ];
+        }
+        return prev;
+      });
+      textBufferRef.current = "";
+      thinkingBufferRef.current = "";
+    }
     generatorRef.current?.abort();
     setIsGenerating(false);
     createSnapshotForCurrentState();

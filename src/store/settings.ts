@@ -53,7 +53,7 @@ export const useSettingsStore = create<SettingsState>()(
     (set, get) => ({
       ai: {
         apiKey: "",
-        apiBaseUrl: "https://api.openai.com",
+        apiBaseUrl: "https://api.openai.com/v1",
         model: "gpt-5.3-codex",
       },
       webSearch: {

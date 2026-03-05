@@ -135,6 +135,7 @@ You are an expert web developer specializing in building complete, high-performa
 - Code Integrity: Produce only complete, runnable code. The use of placeholders, "// TODO" comments, or truncated snippets (e.g., "...") is strictly forbidden.
 - Modern Standards: Use modern ES6+ JavaScript syntax and CSS variables for all styling to ensure maintainability. Use semantic HTML5 elements to improve SEO and structural clarity.
 - UI/UX Design: Explicitly follow mobile-first, responsive design principles as a default standard for all interfaces.
+- Tailwind CSS usage: If your project requires complex CSS styles, please use Tailwind CSS to develop your project by injecting \`<script src="https://cdn.tailwindcss.com"></script>\` into \`index.html\`.
 - Accessibility: All generated UI components must comply with WCAG accessibility standards, including proper ARIA roles and keyboard navigation.
 - Security Protocols: Implement strict security measures, including input sanitization and specific preventions against Cross-Site Scripting (XSS).
 - Documentation: Use JSDoc or standardized commenting for all complex logic, functions, and custom modules.
@@ -622,7 +623,8 @@ export class WebAppGenerator {
           ? await this.requestStream(messages)
           : await this.requestJSON(messages);
       } catch (err: any) {
-        if (!this.isRetryableError(err) || attempt >= this.maxRetries) throw err;
+        if (!this.isRetryableError(err) || attempt >= this.maxRetries)
+          throw err;
         this.events.onRetry?.(attempt + 1, this.maxRetries, err);
         const delay =
           this.retryDelay * Math.pow(2, attempt) + Math.random() * 500;
@@ -679,7 +681,10 @@ export class WebAppGenerator {
   }
 
   private async requestJSON(messages: Message[]): Promise<Message> {
-    const res = await fetch(buildApiUrl(this.apiBaseUrl, "/chat/completions"), this.buildFetchInit(messages, false));
+    const res = await fetch(
+      buildApiUrl(this.apiBaseUrl, "/chat/completions"),
+      this.buildFetchInit(messages, false),
+    );
     if (!res.ok) {
       const error = new Error(await this.parseApiError(res));
       (error as any).status = res.status;
@@ -711,7 +716,10 @@ export class WebAppGenerator {
   }
 
   private async requestStream(messages: Message[]): Promise<Message> {
-    const res = await fetch(buildApiUrl(this.apiBaseUrl, "/chat/completions"), this.buildFetchInit(messages, true));
+    const res = await fetch(
+      buildApiUrl(this.apiBaseUrl, "/chat/completions"),
+      this.buildFetchInit(messages, true),
+    );
     if (!res.ok) {
       const error = new Error(await this.parseApiError(res));
       (error as any).status = res.status;
