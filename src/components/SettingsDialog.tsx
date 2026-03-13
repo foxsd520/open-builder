@@ -9,6 +9,7 @@ import {
   Info,
   RefreshCw,
   Trash2,
+  Shield,
 } from "lucide-react";
 import {
   AISettings,
@@ -23,6 +24,7 @@ import { useConversationStore } from "../store/conversation";
 import { useSnapshotStore } from "../store/snapshot";
 import { useMemoryStore } from "../store/memory";
 import localforage from "localforage";
+import { isTauri, setProxyEnabled } from "../lib/proxy";
 import {
   Dialog,
   DialogContent,
@@ -735,6 +737,31 @@ function SystemTab({
         />
         <p className="text-xs text-muted-foreground">{t.settings.theme.hint}</p>
       </div>
+
+      {/* 反向代理 (仅 Tauri 环境) */}
+      {isTauri() && (
+        <div className="space-y-2">
+          <Label>
+            <Shield size={16} className="inline mr-1" />
+            {t.settings.reverseProxy.label}
+          </Label>
+          <CapsuleGroup
+            value={form.reverseProxy ? "on" : "off"}
+            onChange={(v) => {
+              const enabled = v === "on";
+              setForm({ ...form, reverseProxy: enabled });
+              setProxyEnabled(enabled);
+            }}
+            options={[
+              { value: "on", label: t.settings.reverseProxy.on },
+              { value: "off", label: t.settings.reverseProxy.off },
+            ]}
+          />
+          <p className="text-xs text-muted-foreground">
+            {t.settings.reverseProxy.hint}
+          </p>
+        </div>
+      )}
 
       {/* 重置系统 */}
       <div className="space-y-2">

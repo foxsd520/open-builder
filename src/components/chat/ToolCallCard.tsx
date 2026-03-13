@@ -200,7 +200,7 @@ export const ToolCallCard = memo(function ToolCallCard({
             variant="secondary"
             className="text-xs font-mono h-5 max-w-35 truncate"
           >
-            {path}
+            {path.split("/").pop()}
           </Badge>
         ) : null}
         {result ? (

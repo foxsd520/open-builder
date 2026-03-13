@@ -61,6 +61,12 @@ export const zh = {
       dark: "黑暗",
       hint: "调整应用的配色方案",
     },
+    reverseProxy: {
+      label: "反向代理",
+      on: "启用",
+      off: "停用",
+      hint: "启用后所有 API 请求将通过系统代理转发，可解决 CORS 跨域问题。启用后流式输出效果会受影响。",
+    },
     version: { label: "当前版本", checkUpdate: "检查更新" },
     reset: {
       label: "重置系统",

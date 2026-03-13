@@ -79,6 +79,12 @@ export const en: typeof zh = {
       dark: "Dark",
       hint: "Adjust the app's color scheme",
     },
+    reverseProxy: {
+      label: "Reverse Proxy",
+      on: "Enabled",
+      off: "Disabled",
+      hint: "When enabled, all API requests will be forwarded through the system proxy to resolve CORS issues. Streaming output may be affected.",
+    },
     version: { label: "Version", checkUpdate: "Check for updates" },
     reset: {
       label: "Reset System",

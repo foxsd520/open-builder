@@ -33,6 +33,7 @@ export type Theme = "system" | "light" | "dark";
 export interface SystemSettings {
   language: Language;
   theme: Theme;
+  reverseProxy: boolean;
 }
 
 export interface ModelCache {
@@ -89,6 +90,7 @@ export const useSettingsStore = create<SettingsState>()(
       system: {
         language: "system" as Language,
         theme: "system" as Theme,
+        reverseProxy: false,
       },
       modelCache: null,
 
@@ -130,6 +132,7 @@ export const useSettingsStore = create<SettingsState>()(
           system: {
             language: "system" as Language,
             theme: "system" as Theme,
+            reverseProxy: false,
           },
           modelCache: null,
         });
@@ -161,7 +164,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: "open-builder-settings",
-      version: 4,
+      version: 5,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         ai: state.ai,
@@ -201,6 +204,12 @@ export const useSettingsStore = create<SettingsState>()(
           if (!state.ai) state.ai = {};
           if (!state.ai.apiType) {
             state.ai.apiType = "openai-compatible";
+          }
+        }
+        if (version < 5) {
+          if (!state.system) state.system = {};
+          if (state.system.reverseProxy === undefined) {
+            state.system.reverseProxy = false;
           }
         }
         return state as any;

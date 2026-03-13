@@ -399,14 +399,14 @@ export function useGenerator({
               id || `call_${Math.random().toString(36).substring(2, 11)}`;
             setMessages((prev) => {
               const last = prev[prev.length - 1];
+              const newToolCall = {
+                id: actualId,
+                type: "function" as const,
+                function: { name, arguments: "" },
+              };
               if (last?.role === "assistant") {
                 if (last.tool_calls?.some((tc) => tc.id === actualId))
                   return prev;
-                const newToolCall = {
-                  id: actualId,
-                  type: "function" as const,
-                  function: { name, arguments: "" },
-                };
                 return [
                   ...prev.slice(0, -1),
                   {
@@ -415,7 +415,16 @@ export function useGenerator({
                   },
                 ];
               }
-              return prev;
+              // No assistant message yet (model returned tool calls without text).
+              // Create one so onToolResult can find the matching tool call later.
+              return [
+                ...prev,
+                {
+                  role: "assistant" as const,
+                  content: null,
+                  tool_calls: [newToolCall],
+                },
+              ];
             });
           },
           onToolResult: (_name, _args, result) => {
