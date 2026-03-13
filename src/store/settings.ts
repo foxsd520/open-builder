@@ -12,7 +12,7 @@ export interface AISettings {
 }
 
 export interface WebSearchSettings {
-  engine: "tavily" | "firecrawl" | "disabled";
+  engine: "tavily" | "firecrawl" | "builtin" | "disabled";
   tavilyApiKey: string;
   tavilyApiUrl: string;
   firecrawlApiKey: string;
@@ -146,6 +146,7 @@ export const useSettingsStore = create<SettingsState>()(
       isWebSearchConfigured: () => {
         const { webSearch } = get();
         if (webSearch.engine === "disabled") return false;
+        if (webSearch.engine === "builtin") return true;
         if (webSearch.engine === "tavily") return !!webSearch.tavilyApiKey;
         if (webSearch.engine === "firecrawl")
           return !!webSearch.firecrawlApiKey;
@@ -164,7 +165,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: "open-builder-settings",
-      version: 5,
+      version: 6,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         ai: state.ai,
@@ -212,6 +213,7 @@ export const useSettingsStore = create<SettingsState>()(
             state.system.reverseProxy = false;
           }
         }
+        // version 6: added "builtin" to webSearch.engine — no data migration needed
         return state as any;
       },
     },

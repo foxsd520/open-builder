@@ -33,6 +33,9 @@ export const zh = {
       desc: "配置后，AI 将能够搜索网页和读取网页内容",
       engine: "搜索引擎",
       disabled: "停用",
+      builtin: "模型内置",
+      builtinDesc:
+        "使用模型服务商内置的搜索工具，无需额外配置 API 密钥。网页读取使用 Jina Reader 服务。",
     },
     tavilyKey: { hint: "可选。配置后启用联网搜索和网页读取功能" },
     tavilyUrl: { hint: "可选。默认使用 Tavily 官方 API 地址" },

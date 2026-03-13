@@ -94,6 +94,8 @@ export interface GeneratorOptions {
   maxRetries?: number;
   /** Base delay in ms for exponential backoff (default 1000) */
   retryDelay?: number;
+  /** Names of provider-managed tools (executed server-side, not locally) */
+  providerToolNames?: string[];
 }
 
 /** 事件回调 */
@@ -190,6 +192,7 @@ export class WebAppGenerator {
   private readonly thinkingBudget: number;
   private readonly maxRetries: number;
   private readonly retryDelay: number;
+  private readonly providerToolNames: Set<string>;
   private systemPromptSuffix: string = "";
 
   constructor(options: GeneratorOptions, events: GeneratorEvents = {}) {
@@ -206,6 +209,7 @@ export class WebAppGenerator {
     this.thinkingBudget = options.thinkingBudget ?? 10000;
     this.maxRetries = options.maxRetries ?? 3;
     this.retryDelay = options.retryDelay ?? 1000;
+    this.providerToolNames = new Set(options.providerToolNames ?? []);
 
     this.files = { ...(options.initialFiles ?? {}) };
     this.messages = [];
@@ -317,6 +321,11 @@ export class WebAppGenerator {
         }
 
         for (const toolCall of assistantMsg.tool_calls) {
+          // Skip provider-managed tools (executed server-side, e.g. built-in search)
+          if (this.providerToolNames.has(toolCall.function.name)) {
+            continue;
+          }
+
           if (
             toolCall.function.name === "compact_context" &&
             this.events.onCompact
@@ -485,18 +494,24 @@ export class WebAppGenerator {
           break;
 
         case "tool-input-start":
-          this.events.onToolCall?.(part.toolName, part.id);
+          // Skip UI notification for provider-managed tools
+          if (!this.providerToolNames.has(part.toolName)) {
+            this.events.onToolCall?.(part.toolName, part.id);
+          }
           break;
 
         case "tool-call":
-          toolCallsAccum.push({
-            id: part.toolCallId,
-            type: "function",
-            function: {
-              name: part.toolName,
-              arguments: JSON.stringify(part.input),
-            },
-          });
+          // Only track non-provider tool calls for local execution
+          if (!this.providerToolNames.has(part.toolName)) {
+            toolCallsAccum.push({
+              id: part.toolCallId,
+              type: "function",
+              function: {
+                name: part.toolName,
+                arguments: JSON.stringify(part.input),
+              },
+            });
+          }
           break;
       }
     }

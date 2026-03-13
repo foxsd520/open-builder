@@ -7,7 +7,8 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import type { LanguageModel } from "ai";
+import { type LanguageModel } from "ai";
+import type { ToolSet } from "ai";
 import type {
   OpenAILanguageModelChatOptions,
   OpenAILanguageModelResponsesOptions,
@@ -226,5 +227,70 @@ export async function fetchModelList(
 
     default:
       return [];
+  }
+}
+
+// ─── Built-in Search Tools ──────────────────────────────────────────────────
+
+export interface BuiltinSearchConfig {
+  /** Provider-managed tools to merge into the ToolSet */
+  tools?: ToolSet;
+  /** Names of tools executed server-side — used to filter stream events */
+  providerToolNames: string[];
+}
+
+/**
+ * 根据 apiType 创建对应 provider 的内置搜索配置
+ * 返回 null 表示该 provider 不支持内置搜索
+ */
+export function getBuiltinSearchConfig(
+  config: ProviderConfig,
+): BuiltinSearchConfig | null {
+  const { apiType, apiBaseUrl, apiKey, headers } = config;
+  const baseURL = resolveBaseURL(apiBaseUrl, apiType);
+
+  switch (apiType) {
+    case "openai": {
+      const provider = createOpenAI({ apiKey, baseURL, headers });
+      const tools: ToolSet = {
+        web_search_preview: provider.tools.webSearch({
+          searchContextSize: "high",
+        }),
+      };
+      return { tools, providerToolNames: Object.keys(tools) };
+    }
+
+    case "anthropic": {
+      const provider = createAnthropic({
+        apiKey,
+        baseURL,
+        headers: {
+          "anthropic-dangerous-direct-browser-access": "true",
+          ...headers,
+        },
+      });
+      const tools: ToolSet = {
+        web_search: provider.tools.webSearch_20250305({
+          maxUses: 10,
+        }),
+      };
+      return { tools, providerToolNames: Object.keys(tools) };
+    }
+
+    case "google": {
+      const provider = createGoogleGenerativeAI({
+        apiKey,
+        baseURL,
+        headers,
+      });
+      const tools: ToolSet = {
+        google_search: provider.tools.googleSearch({}),
+      };
+      return { tools, providerToolNames: Object.keys(tools) };
+    }
+
+    case "openai-compatible":
+    default:
+      return null;
   }
 }

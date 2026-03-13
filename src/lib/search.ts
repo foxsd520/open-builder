@@ -4,6 +4,17 @@ import type { WebSearchSettings } from "../store/settings";
 
 // ═══════════════════════════════ 工具定义 ═══════════════════════════════════
 
+export const WEB_READER_TOOL = {
+  web_reader: tool({
+    description:
+      "Read and extract the main content from one or more web pages. " +
+      "Provide URLs to fetch their full text content.",
+    inputSchema: z.object({
+      urls: z.array(z.string()).describe("List of URLs to read"),
+    }),
+  }),
+};
+
 export const SEARCH_TOOLS = {
   web_search: tool({
     description:
@@ -18,14 +29,7 @@ export const SEARCH_TOOLS = {
         .describe("Maximum number of results to return (default: 5)"),
     }),
   }),
-  web_reader: tool({
-    description:
-      "Read and extract the main content from one or more web pages. " +
-      "Provide URLs to fetch their full text content.",
-    inputSchema: z.object({
-      urls: z.array(z.string()).describe("List of URLs to read"),
-    }),
-  }),
+  ...WEB_READER_TOOL,
 };
 
 // ═══════════════════════════════ Tavily API ═══════════════════════════════════
@@ -239,5 +243,24 @@ export function createSearchToolHandler(
     }
 
     return `Error: unknown tool "${name}" or engine "${engine}"`;
+  };
+}
+
+// ═══════════════════════════════ Jina Reader ═══════════════════════════════════
+
+/**
+ * Create a handler that only supports web_reader via Jina Reader.
+ * Used when engine is "builtin" (model handles search natively, but page reading still uses Jina).
+ */
+export function createJinaReaderHandler(): (
+  name: string,
+  args: unknown,
+) => Promise<string> {
+  return async (name: string, args: unknown): Promise<string> => {
+    if (name === "web_reader") {
+      const a = args as { urls: string[] };
+      return jinaFallback(a.urls);
+    }
+    return `Error: unknown tool "${name}"`;
   };
 }

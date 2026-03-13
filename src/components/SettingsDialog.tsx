@@ -142,7 +142,11 @@ export function SettingsDialog({
 
           {/* ── 联网搜索 ── */}
           <TabsContent value="search" className="py-4 space-y-4">
-            <WebSearchTab form={webSearchForm} setForm={setWebSearchForm} />
+            <WebSearchTab
+              form={webSearchForm}
+              setForm={setWebSearchForm}
+              apiType={formData.apiType}
+            />
           </TabsContent>
 
           {/* ── 素材搜索 ── */}
@@ -431,9 +435,11 @@ function ModelSettingsTab({
 function WebSearchTab({
   form,
   setForm,
+  apiType,
 }: {
   form: WebSearchSettings;
   setForm: (v: WebSearchSettings) => void;
+  apiType: string;
 }) {
   const t = useT();
   return (
@@ -454,14 +460,25 @@ function WebSearchTab({
             <SelectItem value="disabled">
               {t.settings.webSearch.disabled}
             </SelectItem>
+            {apiType !== "openai-compatible" && (
+              <SelectItem value="builtin">
+                {t.settings.webSearch.builtin}
+              </SelectItem>
+            )}
             <SelectItem value="tavily">Tavily</SelectItem>
             <SelectItem value="firecrawl">Firecrawl</SelectItem>
           </SelectContent>
         </Select>
 
-        <p className="text-xs text-muted-foreground">
-          {t.settings.webSearch.desc}
-        </p>
+        {form.engine === "builtin" ? (
+          <p className="text-xs text-muted-foreground">
+            {t.settings.webSearch.builtinDesc}
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            {t.settings.webSearch.desc}
+          </p>
+        )}
       </div>
 
       {form.engine === "tavily" && (

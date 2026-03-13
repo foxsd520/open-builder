@@ -35,6 +35,9 @@ export const en: typeof zh = {
       desc: "After configuration, AI will be able to search and read web pages",
       engine: "Search Engine",
       disabled: "Disabled",
+      builtin: "Model Built-in",
+      builtinDesc:
+        "Uses the model provider's built-in search tool. No extra API key needed. Web reader uses Jina Reader.",
     },
     tavilyKey: {
       hint: "Optional. Enables web search and web reading after configuration",

@@ -21,6 +21,8 @@ export interface OpenAIClientConfig {
   model?: string;
   /** 是否启用流式输出 */
   stream?: boolean;
+  /** Names of provider-managed tools (executed server-side, not locally) */
+  providerToolNames?: string[];
 }
 
 export const CHAT_COMPLETIONS_PATH = "/v1/chat/completions";
@@ -56,6 +58,7 @@ export function createOpenAIGenerator(
     initialFiles,
     customTools,
     customToolHandler,
+    providerToolNames: config.providerToolNames,
   };
 
   return new WebAppGenerator(options, events);

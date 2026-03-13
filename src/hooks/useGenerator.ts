@@ -5,7 +5,12 @@ import { createOpenAIGenerator } from "../lib/client";
 import { useConversationStore } from "../store/conversation";
 import { useSettingsStore } from "../store/settings";
 import { useSandpackStore } from "../store/sandpack";
-import { SEARCH_TOOLS, createSearchToolHandler } from "../lib/search";
+import {
+  SEARCH_TOOLS,
+  WEB_READER_TOOL,
+  createSearchToolHandler,
+  createJinaReaderHandler,
+} from "../lib/search";
 import {
   ASSET_SEARCH_TOOLS,
   createAssetSearchToolHandler,
@@ -17,6 +22,7 @@ import {
   createMemoryToolHandler,
   buildMemoryPromptSection,
 } from "../lib/memory";
+import { getBuiltinSearchConfig } from "../lib/ai-provider";
 import { useSnapshotStore } from "../store/snapshot";
 import { mergeMessages } from "../lib/mergeMessages";
 import { compressContext as doCompress } from "../lib/compressContext";
@@ -233,12 +239,35 @@ export function useGenerator({
     }
 
     if (!generatorRef.current) {
-      const webConfigured = useSettingsStore.getState().isWebSearchConfigured();
+      const isBuiltinSearch = webSearchSettings.engine === "builtin";
+      const webConfigured =
+        !isBuiltinSearch && useSettingsStore.getState().isWebSearchConfigured();
       const assetConfigured = useSettingsStore
         .getState()
         .isAssetSearchConfigured();
+
+      // For builtin search: get provider-managed config + Jina reader
+      // For tavily/firecrawl: use custom search handler as before
+      let builtinSearchTools: Record<string, unknown> = {};
+      let providerToolNames: string[] = [];
+      if (isBuiltinSearch) {
+        const builtinConfig = getBuiltinSearchConfig({
+          apiType: settings.apiType,
+          apiBaseUrl: settings.apiBaseUrl,
+          apiKey: settings.apiKey,
+          model: settings.model,
+        });
+        if (builtinConfig) {
+          builtinSearchTools = builtinConfig.tools || {};
+          providerToolNames = builtinConfig.providerToolNames;
+        }
+      }
+
       const searchHandler = webConfigured
         ? createSearchToolHandler(webSearchSettings)
+        : undefined;
+      const jinaReaderHandler = isBuiltinSearch
+        ? createJinaReaderHandler()
         : undefined;
       const assetSearchHandler = assetConfigured
         ? createAssetSearchToolHandler(assetSearchSettings)
@@ -274,6 +303,9 @@ export function useGenerator({
         if (name === "image_search" && assetSearchHandler) {
           return assetSearchHandler(name, args);
         }
+        if (name === "web_reader" && jinaReaderHandler) {
+          return jinaReaderHandler(name, args);
+        }
         if (searchHandler) return searchHandler(name, args);
         return `Error: unknown tool "${name}"`;
       };
@@ -285,6 +317,7 @@ export function useGenerator({
           apiBaseUrl: settings.apiBaseUrl,
           model: settings.model,
           stream: true,
+          providerToolNames,
         },
         {
           onText: (delta) => {
@@ -585,6 +618,8 @@ export function useGenerator({
         files,
         {
           ...(webConfigured ? SEARCH_TOOLS : {}),
+          ...builtinSearchTools,
+          ...(isBuiltinSearch ? WEB_READER_TOOL : {}),
           ...(assetConfigured ? ASSET_SEARCH_TOOLS : {}),
           ...NPM_SEARCH_TOOLS,
           ...MEMORY_TOOLS,
