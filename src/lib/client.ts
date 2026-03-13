@@ -3,13 +3,16 @@ import {
   GeneratorOptions,
   GeneratorEvents,
   ProjectFiles,
-  ToolDefinition,
 } from "./generator";
+import type { ToolSet } from "ai";
+import type { ApiType } from "./ai-provider";
 
 /**
  * OpenAI 兼容客户端配置
  */
 export interface OpenAIClientConfig {
+  /** API 类型 */
+  apiType?: ApiType;
   /** API 基础地址 */
   apiBaseUrl?: string;
   /** API 密钥 */
@@ -41,10 +44,11 @@ export function createOpenAIGenerator(
   config: OpenAIClientConfig,
   events?: GeneratorEvents,
   initialFiles?: ProjectFiles,
-  customTools?: ToolDefinition[],
+  customTools?: ToolSet,
   customToolHandler?: (name: string, args: unknown) => string | Promise<string>,
 ): WebAppGenerator {
   const options: GeneratorOptions = {
+    apiType: config.apiType ?? "openai-compatible",
     apiBaseUrl: config.apiBaseUrl || "https://api.openai.com",
     apiKey: config.apiKey,
     model: config.model || "gpt-5.3-codex",

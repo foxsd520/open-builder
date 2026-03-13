@@ -1,4 +1,5 @@
-import type { ToolDefinition } from "./generator";
+import { tool } from "ai";
+import { z } from "zod";
 
 const NPMS_API = "https://api.npms.io/v2";
 const NPM_REGISTRY = "https://registry.npmjs.org";
@@ -6,51 +7,34 @@ const CACHE_TTL = 10 * 60 * 1000;
 
 const cache = new Map<string, { data: unknown; expiry: number }>();
 
-export const NPM_SEARCH_TOOLS: ToolDefinition[] = [
-  {
-    type: "function",
-    function: {
-      name: "search_npm_packages",
-      description:
-        "Search npm packages by short keywords. Use when you need to find third-party libraries for specific functionality. " +
-        "Returns packages sorted by score with metadata including downloads, quality, and maintenance ratings.",
-      parameters: {
-        type: "object",
-        properties: {
-          query: {
-            type: "string",
-            description:
-              'Search keywords in English, e.g. "react date picker", "markdown parser"',
-          },
-          maxResults: {
-            type: "number",
-            description: "Max results to return (default: 5, max: 15)",
-          },
-        },
-        required: ["query"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "get_npm_package_detail",
-      description:
-        "Get detailed information about a specific npm package including dependencies, TypeScript support, and README. " +
-        "Use when you need to verify package suitability or understand its API.",
-      parameters: {
-        type: "object",
-        properties: {
-          packageName: {
-            type: "string",
-            description: 'Package name, e.g. "lodash", "@tanstack/react-query"',
-          },
-        },
-        required: ["packageName"],
-      },
-    },
-  },
-];
+export const NPM_SEARCH_TOOLS = {
+  search_npm_packages: tool({
+    description:
+      "Search npm packages by short keywords. Use when you need to find third-party libraries for specific functionality. " +
+      "Returns packages sorted by score with metadata including downloads, quality, and maintenance ratings.",
+    inputSchema: z.object({
+      query: z
+        .string()
+        .describe(
+          'Search keywords in English, e.g. "react date picker", "markdown parser"',
+        ),
+      maxResults: z
+        .number()
+        .optional()
+        .describe("Max results to return (default: 5, max: 15)"),
+    }),
+  }),
+  get_npm_package_detail: tool({
+    description:
+      "Get detailed information about a specific npm package including dependencies, TypeScript support, and README. " +
+      "Use when you need to verify package suitability or understand its API.",
+    inputSchema: z.object({
+      packageName: z
+        .string()
+        .describe('Package name, e.g. "lodash", "@tanstack/react-query"'),
+    }),
+  }),
+};
 
 async function fetchWithCache<T>(url: string): Promise<T> {
   const cached = cache.get(url);

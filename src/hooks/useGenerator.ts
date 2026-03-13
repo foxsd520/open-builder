@@ -10,10 +10,7 @@ import {
   ASSET_SEARCH_TOOLS,
   createAssetSearchToolHandler,
 } from "../lib/assetSearch";
-import {
-  NPM_SEARCH_TOOLS,
-  createNpmSearchToolHandler,
-} from "../lib/npmSearch";
+import { NPM_SEARCH_TOOLS, createNpmSearchToolHandler } from "../lib/npmSearch";
 import {
   MEMORY_TOOLS,
   MEMORY_TOOL_NAME,
@@ -23,7 +20,7 @@ import {
 import { useSnapshotStore } from "../store/snapshot";
 import { mergeMessages } from "../lib/mergeMessages";
 import { compressContext as doCompress } from "../lib/compressContext";
-import { generateSmartTitle } from "../lib/smartName";
+import { generateSmartTitle } from "../lib/smartTitle";
 import { DEFAULT_TITLE } from "../store/conversation";
 import type {
   Message,
@@ -186,6 +183,28 @@ export function useGenerator({
   const lastCharTimeRef = useRef(0);
   const lastThinkingTimeRef = useRef(0);
 
+  /** Flush all remaining thinking buffer content at once */
+  const flushThinkingBuffer = () => {
+    if (thinkingTimerRef.current) {
+      cancelAnimationFrame(thinkingTimerRef.current);
+      thinkingTimerRef.current = null;
+    }
+    if (thinkingBufferRef.current) {
+      const remaining = thinkingBufferRef.current;
+      thinkingBufferRef.current = "";
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.role === "assistant") {
+          return [
+            ...prev.slice(0, -1),
+            { ...last, thinking: (last.thinking || "") + remaining },
+          ];
+        }
+        return prev;
+      });
+    }
+  };
+
   const getGenerator = useCallback(() => {
     if (!settings.apiKey || !settings.apiBaseUrl || !settings.model)
       return null;
@@ -200,6 +219,7 @@ export function useGenerator({
     if (generatorRef.current) {
       const g = generatorRef.current as any;
       if (
+        g._apiType !== settings.apiType ||
         g._apiKey !== settings.apiKey ||
         g._apiBaseUrl !== settings.apiBaseUrl ||
         g._model !== settings.model ||
@@ -245,7 +265,10 @@ export function useGenerator({
         if (name === MEMORY_TOOL_NAME) {
           return memoryHandler(name, args);
         }
-        if (name === "search_npm_packages" || name === "get_npm_package_detail") {
+        if (
+          name === "search_npm_packages" ||
+          name === "get_npm_package_detail"
+        ) {
           return npmSearchHandler(name, args);
         }
         if (name === "image_search" && assetSearchHandler) {
@@ -257,6 +280,7 @@ export function useGenerator({
 
       generatorRef.current = createOpenAIGenerator(
         {
+          apiType: settings.apiType,
           apiKey: settings.apiKey,
           apiBaseUrl: settings.apiBaseUrl,
           model: settings.model,
@@ -264,6 +288,8 @@ export function useGenerator({
         },
         {
           onText: (delta) => {
+            // First text-delta means thinking is complete — flush remaining thinking at once
+            flushThinkingBuffer();
             textBufferRef.current += delta;
             if (!typewriterTimerRef.current) {
               const typeChar = (timestamp: number) => {
@@ -341,6 +367,8 @@ export function useGenerator({
             }
           },
           onToolCall: (name, id) => {
+            // Thinking is complete when tool calls arrive — flush remaining thinking at once
+            flushThinkingBuffer();
             // Flush text buffer before tool call to prevent text insertion issues
             if (typewriterTimerRef.current) {
               cancelAnimationFrame(typewriterTimerRef.current);
@@ -459,11 +487,10 @@ export function useGenerator({
               cancelAnimationFrame(typewriterTimerRef.current);
               typewriterTimerRef.current = null;
             }
-            if (thinkingTimerRef.current) {
-              cancelAnimationFrame(thinkingTimerRef.current);
-              thinkingTimerRef.current = null;
-            }
-            if (textBufferRef.current || thinkingBufferRef.current) {
+            flushThinkingBuffer();
+            if (textBufferRef.current) {
+              const remainingText = textBufferRef.current;
+              textBufferRef.current = "";
               setMessages((prev) => {
                 const last = prev[prev.length - 1];
                 if (last?.role === "assistant") {
@@ -471,21 +498,15 @@ export function useGenerator({
                     ...prev.slice(0, -1),
                     {
                       ...last,
-                      content: textBufferRef.current
-                        ? ((typeof last.content === "string"
-                            ? last.content
-                            : "") || "") + textBufferRef.current
-                        : last.content,
-                      thinking: thinkingBufferRef.current
-                        ? (last.thinking || "") + thinkingBufferRef.current
-                        : last.thinking,
+                      content:
+                        ((typeof last.content === "string"
+                          ? last.content
+                          : "") || "") + remainingText,
                     },
                   ];
                 }
                 return prev;
               });
-              textBufferRef.current = "";
-              thinkingBufferRef.current = "";
             }
             createSnapshotForCurrentState();
 
@@ -497,6 +518,7 @@ export function useGenerator({
             if (conv && conv.title === DEFAULT_TITLE) {
               generateSmartTitle(
                 conv.messages,
+                settings.apiType,
                 settings.apiBaseUrl,
                 settings.apiKey,
                 settings.model,
@@ -540,6 +562,7 @@ export function useGenerator({
             if (!conv) return null;
             const result = await doCompress(
               conv.messages,
+              settings.apiType,
               settings.apiBaseUrl,
               settings.apiKey,
               settings.model,
@@ -551,17 +574,18 @@ export function useGenerator({
           },
         },
         files,
-        [
-          ...(webConfigured ? SEARCH_TOOLS : []),
-          ...(assetConfigured ? ASSET_SEARCH_TOOLS : []),
+        {
+          ...(webConfigured ? SEARCH_TOOLS : {}),
+          ...(assetConfigured ? ASSET_SEARCH_TOOLS : {}),
           ...NPM_SEARCH_TOOLS,
           ...MEMORY_TOOLS,
-        ],
+        },
         combinedToolHandler,
       );
 
       // Store config markers for invalidation comparison
       const gen = generatorRef.current as any;
+      gen._apiType = settings.apiType;
       gen._apiKey = settings.apiKey;
       gen._apiBaseUrl = settings.apiBaseUrl;
       gen._model = settings.model;
@@ -803,6 +827,7 @@ export function useGenerator({
     try {
       const result = await doCompress(
         conv.messages,
+        settings.apiType,
         settings.apiBaseUrl,
         settings.apiKey,
         settings.model,

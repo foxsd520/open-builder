@@ -18,9 +18,13 @@ export const en: typeof zh = {
     cancel: "Cancel",
     save: "Save",
     apiKey: { hint: "Your API key will be saved in browser local storage" },
+    apiType: {
+      label: "API Type",
+      hint: "Select the API provider type",
+    },
     apiBaseUrl: {
-      hint: "OpenAI-compatible API base URL, e.g. https://api.openai.com",
-      preview: "Preview: ",
+      hint: "API base URL",
+      preview: "Preview",
     },
     model: {
       label: "Model Name",

@@ -1,5 +1,7 @@
+import { generateText } from "ai";
 import type { Message } from "./generator";
-import { buildApiUrl } from "./client";
+import type { ApiType } from "./ai-provider";
+import { getProviderModel } from "./ai-provider";
 
 /**
  * Generate a smart title (4-12 words) for a conversation based on its messages.
@@ -7,6 +9,7 @@ import { buildApiUrl } from "./client";
  */
 export async function generateSmartTitle(
   messages: Message[],
+  apiType: ApiType,
   apiBaseUrl: string,
   apiKey: string,
   model: string,
@@ -28,33 +31,24 @@ export async function generateSmartTitle(
     .join("\n");
 
   try {
-    const res = await fetch(buildApiUrl(apiBaseUrl, "/chat/completions"), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        stream: false,
-        messages: [
-          {
-            role: "system",
-            content:
-              "Generate a concise title (4-12 words) for this development conversation. " +
-              "The title should describe the app or task being built. " +
-              "Use the same language as the user's message. " +
-              "Return ONLY the title text, no quotes, no explanation, no punctuation at the end.",
-          },
-          { role: "user", content: relevant },
-        ],
-      }),
+    const providerModel = getProviderModel({ apiType, apiBaseUrl, apiKey, model });
+
+    const result = await generateText({
+      model: providerModel,
+      messages: [
+        {
+          role: "system",
+          content:
+            "Generate a concise title (4-12 words) for this development conversation. " +
+            "The title should describe the app or task being built. " +
+            "Use the same language as the user's message. " +
+            "Return ONLY the title text, no quotes, no explanation, no punctuation at the end.",
+        },
+        { role: "user", content: [{ type: "text", text: relevant }] },
+      ],
     });
 
-    if (!res.ok) return null;
-
-    const json = await res.json();
-    const title = json.choices?.[0]?.message?.content?.trim() || "";
+    const title = result.text?.trim() || "";
 
     if (!title || title.length > 80) return null;
     return title;

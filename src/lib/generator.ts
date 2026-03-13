@@ -1,11 +1,16 @@
 // ============================================================================
 //  web-app-generator.ts
-//  AI Tool Call 引擎 —— 通过 OpenAI 兼容 API 驱动，在内存文件系统中生成 Web App
+//  AI Tool Call 引擎 —— 通过 AI SDK 驱动，在内存文件系统中生成 Web App
 //  所有文件以 Record<path, content> 形式存储，无任何 Node.js 依赖，可在浏览器运行
 // ============================================================================
 
 import { SANDBOX_TEMPLATES } from "@codesandbox/sandpack-react";
-import { buildApiUrl } from "./client";
+import { streamText, generateText } from "ai";
+import type { ToolSet } from "ai";
+import { getProviderModel, buildProviderOptions } from "./ai-provider";
+import type { ApiType } from "./ai-provider";
+import { messagesToModelMessages } from "./ai-messages";
+import { BUILTIN_TOOLS } from "./ai-tools";
 
 // ═══════════════════════════════ 类型定义 ═══════════════════════════════════
 
@@ -17,7 +22,7 @@ export type ContentPart =
   | { type: "text"; text: string }
   | { type: "image_url"; image_url: { url: string } };
 
-/** OpenAI 格式的消息 */
+/** 内部消息格式 */
 export interface Message {
   role: "system" | "user" | "assistant" | "tool";
   content: string | ContentPart[] | null;
@@ -34,13 +39,13 @@ export interface ToolCall {
   function: { name: string; arguments: string };
 }
 
-/** 工具定义（OpenAI function calling 格式） */
+/** 工具定义（OpenAI function calling 格式，保留用于向后兼容） */
 export interface ToolDefinition {
   type: "function";
   function: {
     name: string;
     description: string;
-    parameters: Record<string, unknown>;
+    inputSchema: Record<string, unknown>;
   };
 }
 
@@ -61,11 +66,13 @@ export interface GenerateResult {
 
 /** 构造选项 */
 export interface GeneratorOptions {
-  /** OpenAI 兼容 API 基础地址, 如 "https://api.openai.com" */
+  /** API 类型 */
+  apiType?: ApiType;
+  /** API 基础地址 */
   apiBaseUrl: string;
   /** API 密钥 */
   apiKey: string;
-  /** 模型 ID, 如 "gpt-5.3-codex"、"deepseek-chat"、"claude-3-5-sonnet" */
+  /** 模型 ID */
   model: string;
   /** 自定义系统提示词（提供了合理默认值） */
   systemPrompt?: string;
@@ -75,10 +82,8 @@ export interface GeneratorOptions {
   maxIterations?: number;
   /** 是否启用流式输出（默认 true） */
   stream?: boolean;
-  /** 附加请求头 */
-  headers?: Record<string, string>;
-  /** 额外的自定义工具定义 */
-  customTools?: ToolDefinition[];
+  /** 额外的自定义工具（AI SDK ToolSet 格式） */
+  customTools?: ToolSet;
   /** 自定义工具的执行回调（内置工具之外的分发到这里） */
   customToolHandler?: (name: string, args: unknown) => string | Promise<string>;
   /** 是否启用 thinking（默认 true） */
@@ -136,11 +141,11 @@ You are an expert web developer specializing in building complete, high-performa
 - Modern Standards: Use modern ES6+ JavaScript syntax and CSS variables for all styling to ensure maintainability. Use semantic HTML5 elements to improve SEO and structural clarity.
 - UI/UX Design: Explicitly follow mobile-first, responsive design principles as a default standard for all interfaces.
 - Tailwind CSS usage: If your project requires complex CSS styles, please use Tailwind CSS to develop your project by injecting \`<script src="https://cdn.tailwindcss.com"></script>\` into \`index.html\`.
+- Chart usage: If a webpage contains a large amount of data, you can use \`Chart.js\` to generate charts by injecting \`<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>\` into \`index.html\`, thereby improving the page's expressiveness and interactivity.
 - Accessibility: All generated UI components must comply with WCAG accessibility standards, including proper ARIA roles and keyboard navigation.
 - Security Protocols: Implement strict security measures, including input sanitization and specific preventions against Cross-Site Scripting (XSS).
 - Documentation: Use JSDoc or standardized commenting for all complex logic, functions, and custom modules.
 - Performance Optimization: Proactively suggest and implement performance enhancements such as code splitting, lazy loading of assets, and efficient resource management.
-- External Assets: Use reliable CDNs for external assets like fonts, icons, and images.
 - Enhance visual appeal: Using appropriate images during page development can effectively enhance the visual appeal of a website.
 - Dependencies: Strictly forbid the use of deprecated libraries, APIs, or unmaintained third-party packages.
 - Project Organization: Maintain professional directory structures and logical file hierarchies for all projects to ensure scalability.
@@ -160,226 +165,7 @@ You are an expert web developer specializing in building complete, high-performa
 </tools>`;
 
 /** 内置工具定义 */
-const BUILTIN_TOOLS: ToolDefinition[] = [
-  {
-    type: "function",
-    function: {
-      name: "init_project",
-      description:
-        "Initialize the project with a Sandpack template. Call this FIRST when starting a new project. " +
-        "Available templates: " +
-        "static (plain HTML/CSS/JS), " +
-        "vanilla (vanilla JS with bundler), " +
-        "vanilla-ts (vanilla TypeScript), " +
-        "react (React with JavaScript), " +
-        "react-ts (React with TypeScript, DEFAULT), " +
-        "vue (Vue 3 with JavaScript), " +
-        "vue-ts (Vue 3 with TypeScript), " +
-        "svelte (Svelte with JavaScript), " +
-        "angular (Angular with TypeScript), " +
-        "solid (SolidJS with TypeScript), " +
-        "vite (Vite vanilla), " +
-        "vite-react (Vite + React JS), " +
-        "vite-react-ts (Vite + React TypeScript), " +
-        "vite-vue (Vite + Vue JS), " +
-        "vite-vue-ts (Vite + Vue TypeScript), " +
-        "vite-svelte (Vite + Svelte JS), " +
-        "vite-svelte-ts (Vite + Svelte TypeScript), " +
-        "astro (Astro), " +
-        "test-ts (TypeScript test runner).",
-      parameters: {
-        type: "object",
-        properties: {
-          template: {
-            type: "string",
-            description: "Template name from the available list",
-          },
-        },
-        required: ["template"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "manage_dependencies",
-      description:
-        "Add, remove, or update project dependencies by modifying package.json. " +
-        "This triggers a full project restart to install the new dependencies. " +
-        "Provide the complete updated package.json content.",
-      parameters: {
-        type: "object",
-        properties: {
-          package_json: {
-            type: "string",
-            description: "The complete package.json content to write",
-          },
-        },
-        required: ["package_json"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "list_files",
-      description:
-        "List all file paths currently in the project. Returns one path per line, or '(empty)' if no files exist.",
-      parameters: { type: "object", properties: {} },
-    },
-  },
-  // {
-  //   type: "function",
-  //   function: {
-  //     name: "read_file",
-  //     description: "Read and return the full content of a single file. Use read_files instead when reading 2 or more files.",
-  //     parameters: {
-  //       type: "object",
-  //       properties: {
-  //         path: {
-  //           type: "string",
-  //           description: "File path relative to project root",
-  //         },
-  //       },
-  //       required: ["path"],
-  //     },
-  //   },
-  // },
-  {
-    type: "function",
-    function: {
-      name: "read_files",
-      description:
-        "Read and return the full content of multiple files at once. Always prefer this over calling read_file multiple times.",
-      parameters: {
-        type: "object",
-        properties: {
-          paths: {
-            type: "array",
-            items: { type: "string" },
-            description: "List of file paths relative to project root",
-          },
-        },
-        required: ["paths"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "write_file",
-      description:
-        "Create a new file or completely overwrite an existing file with the provided content.",
-      parameters: {
-        type: "object",
-        properties: {
-          path: {
-            type: "string",
-            description: "File path relative to project root",
-          },
-          content: {
-            type: "string",
-            description: "The complete file content to write",
-          },
-        },
-        required: ["path", "content"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "patch_file",
-      description:
-        "Apply one or more search-and-replace patches to an existing file. " +
-        "Each patch replaces the FIRST occurrence of the search string. " +
-        "Include enough surrounding context in 'search' to ensure uniqueness.",
-      parameters: {
-        type: "object",
-        properties: {
-          path: {
-            type: "string",
-            description: "File path to patch",
-          },
-          patches: {
-            type: "array",
-            description: "Ordered list of search-and-replace operations",
-            items: {
-              type: "object",
-              properties: {
-                search: {
-                  type: "string",
-                  description:
-                    "Exact text to find (must be unique in the file)",
-                },
-                replace: {
-                  type: "string",
-                  description: "Text to replace the match with",
-                },
-              },
-              required: ["search", "replace"],
-            },
-          },
-        },
-        required: ["path", "patches"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "search_in_files",
-      description: "Search for a regex pattern across all project files",
-      parameters: {
-        type: "object",
-        properties: {
-          pattern: { type: "string", description: "Regex pattern" },
-        },
-        required: ["pattern"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "delete_file",
-      description: "Delete a file from the project.",
-      parameters: {
-        type: "object",
-        properties: {
-          path: {
-            type: "string",
-            description: "File path to delete",
-          },
-        },
-        required: ["path"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "get_console_logs",
-      description:
-        "Get the browser console output from the running Sandpack preview. " +
-        "Use this after finishing code changes to check for runtime errors, warnings, or syntax errors. " +
-        "If errors are found, fix them immediately.",
-      parameters: { type: "object", properties: {} },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "compact_context",
-      description:
-        "Compress the conversation context to reduce token usage. " +
-        "Call this when the conversation is getting long and you sense the context may be approaching limits, " +
-        "or when earlier messages contain verbose content no longer needed in full detail. " +
-        "This summarizes older messages while preserving key information.",
-      parameters: { type: "object", properties: {} },
-    },
-  },
-];
+// 内置工具已迁移到 ai-tools.ts，使用 Zod schema 定义
 
 // ════════════════════════════ WebAppGenerator 类 ════════════════════════════
 
@@ -391,14 +177,14 @@ export class WebAppGenerator {
   private ctrl: AbortController | null = null;
 
   // ── 配置（只读） ──
+  private readonly apiType: ApiType;
   private readonly apiBaseUrl: string;
   private readonly apiKey: string;
   private readonly model: string;
   private readonly systemPrompt: string;
   private readonly maxIterations: number;
   private readonly useStream: boolean;
-  private readonly extraHeaders: Record<string, string>;
-  private readonly tools: ToolDefinition[];
+  private readonly tools: ToolSet;
   private readonly customToolHandler?: GeneratorOptions["customToolHandler"];
   private readonly useThinking: boolean;
   private readonly thinkingBudget: number;
@@ -407,14 +193,14 @@ export class WebAppGenerator {
   private systemPromptSuffix: string = "";
 
   constructor(options: GeneratorOptions, events: GeneratorEvents = {}) {
+    this.apiType = options.apiType ?? "openai-compatible";
     this.apiBaseUrl = options.apiBaseUrl;
     this.apiKey = options.apiKey;
     this.model = options.model;
     this.systemPrompt = options.systemPrompt ?? DEFAULT_SYSTEM_PROMPT;
     this.maxIterations = options.maxIterations ?? 30;
     this.useStream = options.stream ?? true;
-    this.extraHeaders = options.headers ?? {};
-    this.tools = [...BUILTIN_TOOLS, ...(options.customTools ?? [])];
+    this.tools = { ...BUILTIN_TOOLS, ...(options.customTools ?? {}) };
     this.customToolHandler = options.customToolHandler;
     this.useThinking = options.thinking ?? true;
     this.thinkingBudget = options.thinkingBudget ?? 10000;
@@ -623,9 +409,7 @@ export class WebAppGenerator {
   private async requestWithRetry(messages: Message[]): Promise<Message> {
     for (let attempt = 0; ; attempt++) {
       try {
-        return this.useStream
-          ? await this.requestStream(messages)
-          : await this.requestJSON(messages);
+        return await this.requestAI(messages);
       } catch (err: any) {
         if (!this.isRetryableError(err) || attempt >= this.maxRetries)
           throw err;
@@ -646,192 +430,127 @@ export class WebAppGenerator {
     return this.systemPrompt + listing + this.systemPromptSuffix;
   }
 
-  private buildFetchInit(messages: Message[], stream: boolean): RequestInit {
+  /** 通过 AI SDK 发起请求 */
+  private async requestAI(messages: Message[]): Promise<Message> {
     this.ctrl = new AbortController();
 
-    return {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.apiKey}`,
-        ...this.extraHeaders,
-      },
-      body: JSON.stringify({
-        model: this.model,
-        messages,
-        tools: this.tools.length > 0 ? this.tools : undefined,
-        stream,
-        ...(this.useThinking
-          ? {
-              thinking: { type: "enabled", budget_tokens: this.thinkingBudget },
-            }
-          : {}),
-      }),
-      signal: this.ctrl.signal,
-    };
+    const coreMessages = messagesToModelMessages(messages, this.apiType);
+    const model = getProviderModel({
+      apiType: this.apiType,
+      apiBaseUrl: this.apiBaseUrl,
+      apiKey: this.apiKey,
+      model: this.model,
+    });
+
+    const providerOptions = this.useThinking
+      ? buildProviderOptions(this.apiType, this.thinkingBudget)
+      : undefined;
+
+    if (this.useStream) {
+      return this.requestStreamAI(model, coreMessages, providerOptions);
+    } else {
+      return this.requestGenerateAI(model, coreMessages, providerOptions);
+    }
   }
 
-  private async parseApiError(res: Response): Promise<string> {
-    const text = await res.text();
-    try {
-      const json = JSON.parse(text);
-      const msg =
-        json.error?.message || json.message || json.detail || json.msg;
-      if (msg) return `API error ${res.status}: ${msg}`;
-    } catch {
-      /* not JSON */
-    }
-    return `API error ${res.status}: ${text}`;
-  }
+  /** 流式请求 — 使用 AI SDK streamText() */
+  private async requestStreamAI(
+    model: ReturnType<typeof getProviderModel>,
+    coreMessages: ReturnType<typeof messagesToModelMessages>,
+    providerOptions?: ReturnType<typeof buildProviderOptions>,
+  ): Promise<Message> {
+    const result = streamText({
+      model,
+      messages: coreMessages,
+      tools: this.tools,
+      maxRetries: 0, // retry 由 requestWithRetry 处理
+      abortSignal: this.ctrl!.signal,
+      providerOptions: providerOptions as any,
+    });
 
-  private async requestJSON(messages: Message[]): Promise<Message> {
-    const res = await fetch(
-      buildApiUrl(this.apiBaseUrl, "/chat/completions"),
-      this.buildFetchInit(messages, false),
-    );
-    if (!res.ok) {
-      const error = new Error(await this.parseApiError(res));
-      (error as any).status = res.status;
-      throw error;
-    }
-
-    const json = await res.json();
-    const choice = json.choices?.[0]?.message;
-    if (!choice) throw new Error("API returned empty choices");
-
-    if (choice.content) {
-      this.events.onText?.(choice.content);
-    }
-    if (choice.thinking) {
-      this.events.onThinking?.(choice.thinking);
-    }
-    if (choice.tool_calls) {
-      for (const tc of choice.tool_calls) {
-        this.events.onToolCall?.(tc.function.name, tc.id);
-      }
-    }
-
-    return {
-      role: "assistant",
-      content: choice.content ?? null,
-      tool_calls: choice.tool_calls?.length ? choice.tool_calls : undefined,
-      thinking: choice.thinking ?? undefined,
-    };
-  }
-
-  private async requestStream(messages: Message[]): Promise<Message> {
-    const res = await fetch(
-      buildApiUrl(this.apiBaseUrl, "/chat/completions"),
-      this.buildFetchInit(messages, true),
-    );
-    if (!res.ok) {
-      const error = new Error(await this.parseApiError(res));
-      (error as any).status = res.status;
-      throw error;
-    }
-
-    const reader = res.body!.getReader();
-    const decoder = new TextDecoder();
-
-    let buffer = "";
     let contentAccum = "";
     let thinkingAccum = "";
-    const toolCallAccum = new Map<
-      number,
-      { id: string; name: string; arguments: string }
-    >();
+    const toolCallsAccum: ToolCall[] = [];
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+    for await (const part of result.fullStream) {
+      switch (part.type) {
+        case "text-delta":
+          contentAccum += part.text;
+          this.events.onText?.(part.text);
+          break;
 
-      buffer += decoder.decode(value, { stream: true });
+        case "reasoning-delta":
+          thinkingAccum += part.text;
+          this.events.onThinking?.(part.text);
+          break;
 
-      const lines = buffer.split("\n");
-      buffer = lines.pop()!;
+        case "tool-input-start":
+          this.events.onToolCall?.(part.toolName, part.id);
+          break;
 
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed.startsWith("data: ")) continue;
-
-        const payload = trimmed.slice(6);
-        if (payload === "[DONE]") continue;
-
-        let chunk: any;
-        try {
-          chunk = JSON.parse(payload);
-        } catch {
-          continue;
-        }
-
-        const delta = chunk.choices?.[0]?.delta;
-        if (!delta) continue;
-
-        if (delta.content) {
-          contentAccum += delta.content;
-          this.events.onText?.(delta.content);
-        }
-
-        // Handle thinking delta (extended thinking / reasoning)
-        if (delta.reasoning_content || delta.thinking) {
-          const thinkingDelta = delta.reasoning_content || delta.thinking;
-          thinkingAccum += thinkingDelta;
-          this.events.onThinking?.(thinkingDelta);
-        }
-
-        if (delta.tool_calls) {
-          for (const dtc of delta.tool_calls) {
-            const idx: number = dtc.index;
-
-            if (!toolCallAccum.has(idx)) {
-              // Pre-generate a random fallback ID in case the API doesn't send one
-              const fallbackId = `call_${Math.random().toString(36).substring(2, 11)}`;
-              toolCallAccum.set(idx, {
-                id: fallbackId,
-                name: "",
-                arguments: "",
-              });
-            }
-
-            const entry = toolCallAccum.get(idx)!;
-
-            if (dtc.id) {
-              entry.id = dtc.id;
-            }
-            if (dtc.function?.name) {
-              entry.name = dtc.function.name;
-              this.events.onToolCall?.(entry.name, entry.id);
-            }
-            if (dtc.function?.arguments) {
-              entry.arguments += dtc.function.arguments;
-            }
-          }
-        }
+        case "tool-call":
+          toolCallsAccum.push({
+            id: part.toolCallId,
+            type: "function",
+            function: {
+              name: part.toolName,
+              arguments: JSON.stringify(part.input),
+            },
+          });
+          break;
       }
     }
-
-    const toolCalls: ToolCall[] = [...toolCallAccum.entries()]
-      .sort(([a], [b]) => a - b)
-      .map(([, entry]) => {
-        // Ensure there is always a tool call ID, even if the API stream didn't provide one
-        if (!entry.id) {
-          entry.id = `call_${Math.random().toString(36).substring(2, 11)}`;
-        }
-        return {
-          id: entry.id,
-          type: "function" as const,
-          function: {
-            name: entry.name,
-            arguments: entry.arguments,
-          },
-        };
-      });
 
     return {
       role: "assistant",
       content: contentAccum || null,
-      tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
+      tool_calls: toolCallsAccum.length > 0 ? toolCallsAccum : undefined,
       thinking: thinkingAccum || undefined,
+    };
+  }
+
+  /** 非流式请求 — 使用 AI SDK generateText() */
+  private async requestGenerateAI(
+    model: ReturnType<typeof getProviderModel>,
+    coreMessages: ReturnType<typeof messagesToModelMessages>,
+    providerOptions?: ReturnType<typeof buildProviderOptions>,
+  ): Promise<Message> {
+    const result = await generateText({
+      model,
+      messages: coreMessages,
+      tools: this.tools,
+      maxRetries: 0,
+      abortSignal: this.ctrl!.signal,
+      providerOptions: providerOptions as any,
+    });
+
+    if (result.text) {
+      this.events.onText?.(result.text);
+    }
+
+    const reasoning = (result as any).reasoning;
+    if (reasoning) {
+      this.events.onThinking?.(reasoning);
+    }
+
+    const toolCalls: ToolCall[] = (result.toolCalls || []).map((tc) => ({
+      id: tc.toolCallId,
+      type: "function",
+      function: {
+        name: tc.toolName,
+        arguments: JSON.stringify(tc.input),
+      },
+    }));
+
+    for (const tc of toolCalls) {
+      this.events.onToolCall?.(tc.function.name, tc.id);
+    }
+
+    return {
+      role: "assistant",
+      content: result.text || null,
+      tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
+      thinking: reasoning || undefined,
     };
   }
 

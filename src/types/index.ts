@@ -14,6 +14,7 @@ export type {
 
 export type { AISettings, WebSearchSettings, AssetSearchSettings } from "../store/settings";
 export type { OpenAIClientConfig } from "../lib/client";
+export type { ApiType } from "../lib/ai-provider";
 
 // ─── Chat UI types ────────────────────────────────────────────────────────────
 

@@ -1,55 +1,34 @@
-import type { ToolDefinition } from "./generator";
+import { tool } from "ai";
+import { z } from "zod";
 import type { AssetSearchSettings } from "../store/settings";
 
-export const ASSET_SEARCH_TOOLS: ToolDefinition[] = [
-  {
-    type: "function",
-    function: {
-      name: "image_search",
-      description:
-        "Search for high-quality stock images using keywords. " +
-        "Returns image URLs, thumbnails, and metadata. " +
-        "Use this when you need real photos or illustrations for the application.",
-      parameters: {
-        type: "object",
-        properties: {
-          query: {
-            type: "string",
-            description: "Search keywords for images",
-          },
-          image_type: {
-            type: "string",
-            enum: ["all", "photo", "illustration", "vector"],
-            description: "Type of image (default: all)",
-          },
-          orientation: {
-            type: "string",
-            enum: ["all", "horizontal", "vertical"],
-            description: "Image orientation (default: all)",
-          },
-          color: {
-            type: "string",
-            enum: [
-              "black",
-              "white",
-              "yellow",
-              "orange",
-              "red",
-              "green",
-              "blue",
-            ],
-            description: "Filter by color (optional, Unsplash only)",
-          },
-          per_page: {
-            type: "number",
-            description: "Number of results (default: 10, max: 20)",
-          },
-        },
-        required: ["query"],
-      },
-    },
-  },
-];
+export const ASSET_SEARCH_TOOLS = {
+  image_search: tool({
+    description:
+      "Search for high-quality stock images using keywords. " +
+      "Returns image URLs, thumbnails, and metadata. " +
+      "Use this when you need real photos or illustrations for the application.",
+    inputSchema: z.object({
+      query: z.string().describe("Search keywords for images"),
+      image_type: z
+        .enum(["all", "photo", "illustration", "vector"])
+        .optional()
+        .describe("Type of image (default: all)"),
+      orientation: z
+        .enum(["all", "horizontal", "vertical"])
+        .optional()
+        .describe("Image orientation (default: all)"),
+      color: z
+        .enum(["black", "white", "yellow", "orange", "red", "green", "blue"])
+        .optional()
+        .describe("Filter by color (optional, Unsplash only)"),
+      per_page: z
+        .number()
+        .optional()
+        .describe("Number of results (default: 10, max: 20)"),
+    }),
+  }),
+};
 
 async function pixabaySearch(
   settings: AssetSearchSettings,

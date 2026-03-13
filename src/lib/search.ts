@@ -1,54 +1,32 @@
-import type { ToolDefinition } from "./generator";
+import { tool } from "ai";
+import { z } from "zod";
 import type { WebSearchSettings } from "../store/settings";
 
 // ═══════════════════════════════ 工具定义 ═══════════════════════════════════
 
-export const SEARCH_TOOLS: ToolDefinition[] = [
-  {
-    type: "function",
-    function: {
-      name: "web_search",
-      description:
-        "Search the web for information using a query string. " +
-        "Returns relevant results with titles, URLs, and content snippets. " +
-        "Use this when you need up-to-date information from the internet.",
-      parameters: {
-        type: "object",
-        properties: {
-          query: {
-            type: "string",
-            description: "The search query",
-          },
-          max_results: {
-            type: "number",
-            description: "Maximum number of results to return (default: 5)",
-          },
-        },
-        required: ["query"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "web_reader",
-      description:
-        "Read and extract the main content from one or more web pages. " +
-        "Provide URLs to fetch their full text content.",
-      parameters: {
-        type: "object",
-        properties: {
-          urls: {
-            type: "array",
-            items: { type: "string" },
-            description: "List of URLs to read",
-          },
-        },
-        required: ["urls"],
-      },
-    },
-  },
-];
+export const SEARCH_TOOLS = {
+  web_search: tool({
+    description:
+      "Search the web for information using a query string. " +
+      "Returns relevant results with titles, URLs, and content snippets. " +
+      "Use this when you need up-to-date information from the internet.",
+    inputSchema: z.object({
+      query: z.string().describe("The search query"),
+      max_results: z
+        .number()
+        .optional()
+        .describe("Maximum number of results to return (default: 5)"),
+    }),
+  }),
+  web_reader: tool({
+    description:
+      "Read and extract the main content from one or more web pages. " +
+      "Provide URLs to fetch their full text content.",
+    inputSchema: z.object({
+      urls: z.array(z.string()).describe("List of URLs to read"),
+    }),
+  }),
+};
 
 // ═══════════════════════════════ Tavily API ═══════════════════════════════════
 
@@ -70,7 +48,10 @@ async function tavilySearch(
   });
   if (!res.ok) {
     const text = await res.text();
-    return JSON.stringify({ ok: false, error: `Tavily search failed (${res.status}): ${text}` });
+    return JSON.stringify({
+      ok: false,
+      error: `Tavily search failed (${res.status}): ${text}`,
+    });
   }
   const data = await res.json();
   return JSON.stringify({
@@ -99,14 +80,23 @@ async function tavilyExtract(
       }),
     });
     if (!res.ok) {
-      throw new Error(`Tavily extract failed (${res.status}): ${await res.text()}`);
+      throw new Error(
+        `Tavily extract failed (${res.status}): ${await res.text()}`,
+      );
     }
     const data = await res.json();
-    const results = (data.results ?? []) as { url: string; raw_content: string }[];
+    const results = (data.results ?? []) as {
+      url: string;
+      raw_content: string;
+    }[];
     if (results.length === 0) throw new Error("Tavily returned empty results");
     return JSON.stringify({
       ok: true,
-      pages: results.map((r) => ({ url: r.url, ok: true, content: r.raw_content })),
+      pages: results.map((r) => ({
+        url: r.url,
+        ok: true,
+        content: r.raw_content,
+      })),
     });
   } catch (err: any) {
     console.warn("Tavily extract failed, falling back to Jina:", err.message);
@@ -115,14 +105,23 @@ async function tavilyExtract(
 }
 
 async function jinaFallback(urls: string[]): Promise<string> {
-  const pages: { url: string; ok: boolean; content?: string; error?: string }[] = [];
+  const pages: {
+    url: string;
+    ok: boolean;
+    content?: string;
+    error?: string;
+  }[] = [];
   for (const url of urls) {
     try {
       const res = await fetch(`https://r.jina.ai/${url}`, {
         headers: { Accept: "text/plain" },
       });
       if (!res.ok) {
-        pages.push({ url, ok: false, error: `Jina fetch failed (${res.status})` });
+        pages.push({
+          url,
+          ok: false,
+          error: `Jina fetch failed (${res.status})`,
+        });
         continue;
       }
       pages.push({ url, ok: true, content: await res.text() });
@@ -145,7 +144,7 @@ async function firecrawlSearch(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${settings.firecrawlApiKey}`,
+      Authorization: `Bearer ${settings.firecrawlApiKey}`,
     },
     body: JSON.stringify({
       query,
@@ -158,7 +157,7 @@ async function firecrawlSearch(
     const text = await res.text();
     return JSON.stringify({
       ok: false,
-      error: `Firecrawl search failed (${res.status}): ${text}`
+      error: `Firecrawl search failed (${res.status}): ${text}`,
     });
   }
 
@@ -183,7 +182,7 @@ async function firecrawlScrape(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${settings.firecrawlApiKey}`,
+      Authorization: `Bearer ${settings.firecrawlApiKey}`,
     },
     body: JSON.stringify({
       urls,
@@ -195,10 +194,10 @@ async function firecrawlScrape(
     const text = await res.text();
     return JSON.stringify({
       ok: false,
-      pages: urls.map(url => ({
+      pages: urls.map((url) => ({
         url,
         ok: false,
-        error: `Firecrawl failed (${res.status}): ${text}`
+        error: `Firecrawl failed (${res.status}): ${text}`,
       })),
     });
   }
@@ -225,13 +224,17 @@ export function createSearchToolHandler(
 
     if (engine === "tavily") {
       switch (name) {
-        case "web_search": return tavilySearch(settings, a.query, a.max_results);
-        case "web_reader": return tavilyExtract(settings, a.urls);
+        case "web_search":
+          return tavilySearch(settings, a.query, a.max_results);
+        case "web_reader":
+          return tavilyExtract(settings, a.urls);
       }
     } else if (engine === "firecrawl") {
       switch (name) {
-        case "web_search": return firecrawlSearch(settings, a.query, a.max_results);
-        case "web_reader": return firecrawlScrape(settings, a.urls);
+        case "web_search":
+          return firecrawlSearch(settings, a.query, a.max_results);
+        case "web_reader":
+          return firecrawlScrape(settings, a.urls);
       }
     }
 

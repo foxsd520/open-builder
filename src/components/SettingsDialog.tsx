@@ -42,9 +42,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { buildApiUrl } from "@/lib/client";
+import {
+  fetchModelList,
+  DEFAULT_BASE_URLS,
+  resolveBaseURL,
+} from "@/lib/ai-provider";
+import type { ApiType } from "@/lib/ai-provider";
 import { version } from "../../package.json";
 import { useT } from "../i18n";
+
+const API_ENDPOINTS: Record<ApiType, string> = {
+  "openai-compatible": "/chat/completions",
+  openai: "/responses",
+  anthropic: "/messages",
+  google: "/models",
+};
 
 interface SettingsDialogProps {
   isOpen: boolean;
@@ -172,6 +184,7 @@ function ModelSettingsTab({
 
   const cacheHit =
     modelCache &&
+    modelCache.apiType === formData.apiType &&
     modelCache.apiBaseUrl === formData.apiBaseUrl &&
     modelCache.apiKey === formData.apiKey;
 
@@ -192,20 +205,16 @@ function ModelSettingsTab({
     setIsLoading(true);
     setIsRefreshing(true);
     try {
-      const modelsUrl = buildApiUrl(formData.apiBaseUrl, "/models");
-      const res = await fetch(modelsUrl, {
-        headers: { Authorization: `Bearer ${formData.apiKey}` },
-      });
-      if (!res.ok) throw new Error();
-      const json = await res.json();
-      const ids: string[] = (json.data || [])
-        .map((m: any) => m.id)
-        .filter(Boolean)
-        .sort();
+      const ids = await fetchModelList(
+        formData.apiType,
+        formData.apiBaseUrl,
+        formData.apiKey,
+      );
       setModels(ids);
       setFetchFailed(false);
       setModelCache({
         models: ids,
+        apiType: formData.apiType,
         apiBaseUrl: formData.apiBaseUrl,
         apiKey: formData.apiKey,
       });
@@ -217,7 +226,13 @@ function ModelSettingsTab({
       setIsLoading(false);
       setTimeout(() => setIsRefreshing(false), 600);
     }
-  }, [formData.apiBaseUrl, formData.apiKey, setModelCache, clearModelCache]);
+  }, [
+    formData.apiType,
+    formData.apiBaseUrl,
+    formData.apiKey,
+    setModelCache,
+    clearModelCache,
+  ]);
 
   useEffect(() => {
     if (!formData.apiBaseUrl || !formData.apiKey) {
@@ -225,10 +240,11 @@ function ModelSettingsTab({
       setFetchFailed(true);
       return;
     }
-    // Use cache if apiBaseUrl and apiKey haven't changed
+    // Use cache if settings haven't changed
     const cached = useSettingsStore.getState().modelCache;
     if (
       cached &&
+      cached.apiType === formData.apiType &&
       cached.apiBaseUrl === formData.apiBaseUrl &&
       cached.apiKey === formData.apiKey
     ) {
@@ -240,7 +256,20 @@ function ModelSettingsTab({
       fetchModels();
     }, 500);
     return () => clearTimeout(timer);
-  }, [formData.apiBaseUrl, formData.apiKey]);
+  }, [formData.apiType, formData.apiBaseUrl, formData.apiKey]);
+
+  const handleApiTypeChange = (v: string) => {
+    const apiType = v as ApiType;
+    setFormData({
+      ...formData,
+      apiType,
+      apiBaseUrl: DEFAULT_BASE_URLS[apiType],
+      model: "",
+    });
+    setModels([]);
+    setFetchFailed(true);
+    clearModelCache();
+  };
 
   const showDropdown = models.length > 0 && !fetchFailed;
   const displayModels =
@@ -250,6 +279,36 @@ function ModelSettingsTab({
 
   return (
     <>
+      <div className="space-y-2">
+        <Label htmlFor="apiType">
+          <Cpu size={16} className="inline mr-1" />
+          {t.settings.apiType?.label ?? "API Type"}
+        </Label>
+        <Select value={formData.apiType} onValueChange={handleApiTypeChange}>
+          <SelectTrigger id="apiType" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="openai-compatible">
+              OpenAI Compatible{" "}
+              <span className="text-blue-500">/v1/chat/completions</span>
+            </SelectItem>
+            <SelectItem value="openai">
+              OpenAI <span className="text-indigo-500">/v1/responses</span>
+            </SelectItem>
+            <SelectItem value="anthropic">
+              Anthropic <span className="text-amber-500">/v1/messages</span>
+            </SelectItem>
+            <SelectItem value="google">
+              Google <span className="text-rose-500">/v1beta/models</span>
+            </SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          {t.settings.apiType?.hint ?? "Select the API provider type"}
+        </p>
+      </div>
+
       <div className="space-y-2">
         <Label htmlFor="apiKey">
           <Key size={16} className="inline mr-1" />
@@ -279,13 +338,14 @@ function ModelSettingsTab({
           onChange={(e) =>
             setFormData({ ...formData, apiBaseUrl: e.target.value })
           }
-          placeholder="https://api.openai.com"
+          placeholder={DEFAULT_BASE_URLS[formData.apiType]}
         />
-        <p className="text-xs text-muted-foreground truncate">
-          {t.settings.apiBaseUrl.preview}
-          {formData.apiBaseUrl
-            ? buildApiUrl(formData.apiBaseUrl, "/chat/completions")
-            : "https://api.openai.com/v1/chat/completions"}
+        <p className="text-xs text-muted-foreground break-all">
+          {t.settings.apiBaseUrl.preview}:{" "}
+          {resolveBaseURL(
+            formData.apiBaseUrl || DEFAULT_BASE_URLS[formData.apiType],
+            formData.apiType,
+          ) + API_ENDPOINTS[formData.apiType]}
         </p>
       </div>
 
@@ -336,7 +396,7 @@ function ModelSettingsTab({
               onChange={(e) =>
                 setFormData({ ...formData, model: e.target.value })
               }
-              placeholder="gpt-5.3-codex"
+              placeholder={t.settings.model.hint}
               className="flex-1"
             />
             {formData.apiBaseUrl && formData.apiKey && (

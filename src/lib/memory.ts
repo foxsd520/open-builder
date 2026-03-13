@@ -1,4 +1,5 @@
-import type { ToolDefinition } from "./generator";
+import { tool } from "ai";
+import { z } from "zod";
 import type { MemoryOperation } from "../types";
 import { useMemoryStore } from "../store/memory";
 
@@ -8,65 +9,52 @@ export const MEMORY_TOOL_NAME = "manage_memories";
 
 // ═══════════════════════════════ Tool Definition ═════════════════════════════
 
-export const MEMORY_TOOLS: ToolDefinition[] = [
-  {
-    type: "function",
-    function: {
-      name: MEMORY_TOOL_NAME,
-      description:
-        "Save, update, or delete user memories. Call this when you discover important " +
-        "information about the user during conversation, such as their preferences, " +
-        "personal details, instructions for your behavior, or long-term relevant facts. " +
-        "Supports batch operations: you can add new memories, update existing ones " +
-        "(to resolve conflicts or refine), and delete outdated ones in a single call. " +
-        "Do NOT save temporary or one-off information. " +
-        "Do NOT inform the user that you are saving memories — do it silently.",
-      parameters: {
-        type: "object",
-        properties: {
-          operations: {
-            type: "array",
-            description: "List of memory operations to perform",
-            items: {
-              type: "object",
-              properties: {
-                action: {
-                  type: "string",
-                  enum: ["add", "update", "delete"],
-                  description: "The operation type",
-                },
-                id: {
-                  type: "string",
-                  description:
-                    "Memory ID (required for update and delete operations)",
-                },
-                content: {
-                  type: "string",
-                  description:
-                    "Memory content in third person (e.g., 'The user is a frontend developer'). " +
-                    "Required for add and update.",
-                },
-                category: {
-                  type: "string",
-                  enum: [
-                    "preference",
-                    "personal_info",
-                    "instruction",
-                    "fact",
-                    "project",
-                  ],
-                  description: "Memory category. Required for add.",
-                },
-              },
-              required: ["action"],
-            },
-          },
-        },
-        required: ["operations"],
-      },
-    },
-  },
-];
+export const MEMORY_TOOLS = {
+  [MEMORY_TOOL_NAME]: tool({
+    description:
+      "Save, update, or delete user memories. Call this when you discover important " +
+      "information about the user during conversation, such as their preferences, " +
+      "personal details, instructions for your behavior, or long-term relevant facts. " +
+      "Supports batch operations: you can add new memories, update existing ones " +
+      "(to resolve conflicts or refine), and delete outdated ones in a single call. " +
+      "Do NOT save temporary or one-off information. " +
+      "Do NOT inform the user that you are saving memories — do it silently.",
+    inputSchema: z.object({
+      operations: z
+        .array(
+          z.object({
+            action: z
+              .enum(["add", "update", "delete"])
+              .describe("The operation type"),
+            id: z
+              .string()
+              .optional()
+              .describe(
+                "Memory ID (required for update and delete operations)",
+              ),
+            content: z
+              .string()
+              .optional()
+              .describe(
+                "Memory content in third person (e.g., 'The user is a frontend developer'). " +
+                  "Required for add and update.",
+              ),
+            category: z
+              .enum([
+                "preference",
+                "personal_info",
+                "instruction",
+                "fact",
+                "project",
+              ])
+              .optional()
+              .describe("Memory category. Required for add."),
+          }),
+        )
+        .describe("List of memory operations to perform"),
+    }),
+  }),
+};
 
 // ═══════════════════════════════ Tool Handler ════════════════════════════════
 
@@ -83,9 +71,16 @@ export function createMemoryToolHandler(): (
     if (!Array.isArray(operations) || operations.length === 0) {
       return "Error: operations array is required and must not be empty";
     }
-    console.group(`[Memory] manage_memories called with ${operations.length} operation(s)`);
+    console.group(
+      `[Memory] manage_memories called with ${operations.length} operation(s)`,
+    );
     for (const op of operations) {
-      console.log(`  [${op.action}]`, op.id ? `id=${op.id}` : "", op.content ?? "", op.category ? `(${op.category})` : "");
+      console.log(
+        `  [${op.action}]`,
+        op.id ? `id=${op.id}` : "",
+        op.content ?? "",
+        op.category ? `(${op.category})` : "",
+      );
     }
     const result = useMemoryStore.getState().processBatch(operations);
     console.log(`  Result: ${result}`);

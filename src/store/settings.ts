@@ -1,9 +1,11 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import type { ApiType } from "../lib/ai-provider";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface AISettings {
+  apiType: ApiType;
   apiKey: string;
   apiBaseUrl: string;
   model: string;
@@ -35,6 +37,7 @@ export interface SystemSettings {
 
 export interface ModelCache {
   models: string[];
+  apiType: string;
   apiBaseUrl: string;
   apiKey: string;
 }
@@ -64,9 +67,10 @@ export const useSettingsStore = create<SettingsState>()(
   persist(
     (set, get) => ({
       ai: {
+        apiType: "openai-compatible",
         apiKey: "",
-        apiBaseUrl: "https://api.openai.com/v1",
-        model: "gpt-5.3-codex",
+        apiBaseUrl: "",
+        model: "",
       },
       webSearch: {
         engine: "disabled",
@@ -104,9 +108,10 @@ export const useSettingsStore = create<SettingsState>()(
       resetAll: () => {
         set({
           ai: {
+            apiType: "openai-compatible",
             apiKey: "",
-            apiBaseUrl: "https://api.openai.com/v1",
-            model: "gpt-5.3-codex",
+            apiBaseUrl: "",
+            model: "",
           },
           webSearch: {
             engine: "disabled",
@@ -139,21 +144,24 @@ export const useSettingsStore = create<SettingsState>()(
         const { webSearch } = get();
         if (webSearch.engine === "disabled") return false;
         if (webSearch.engine === "tavily") return !!webSearch.tavilyApiKey;
-        if (webSearch.engine === "firecrawl") return !!webSearch.firecrawlApiKey;
+        if (webSearch.engine === "firecrawl")
+          return !!webSearch.firecrawlApiKey;
         return false;
       },
 
       isAssetSearchConfigured: () => {
         const { assetSearch } = get();
         if (assetSearch.engine === "disabled") return false;
-        if (assetSearch.engine === "pixabay") return !!assetSearch.pixabayApiKey;
-        if (assetSearch.engine === "unsplash") return !!assetSearch.unsplashApiKey;
+        if (assetSearch.engine === "pixabay")
+          return !!assetSearch.pixabayApiKey;
+        if (assetSearch.engine === "unsplash")
+          return !!assetSearch.unsplashApiKey;
         return false;
       },
     }),
     {
       name: "open-builder-settings",
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         ai: state.ai,
@@ -172,7 +180,9 @@ export const useSettingsStore = create<SettingsState>()(
         }
         if (version < 2) {
           if (!state.webSearch) state.webSearch = {};
-          state.webSearch.engine = state.webSearch.tavilyApiKey ? "tavily" : "disabled";
+          state.webSearch.engine = state.webSearch.tavilyApiKey
+            ? "tavily"
+            : "disabled";
           state.webSearch.firecrawlApiKey = "";
           state.webSearch.firecrawlApiUrl = "https://api.firecrawl.dev";
         }
@@ -185,6 +195,12 @@ export const useSettingsStore = create<SettingsState>()(
               unsplashApiKey: "",
               unsplashApiUrl: "https://api.unsplash.com",
             };
+          }
+        }
+        if (version < 4) {
+          if (!state.ai) state.ai = {};
+          if (!state.ai.apiType) {
+            state.ai.apiType = "openai-compatible";
           }
         }
         return state as any;

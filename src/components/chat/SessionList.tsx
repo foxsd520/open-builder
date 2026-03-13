@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/collapsible";
 import { useConversationStore, DEFAULT_TITLE } from "../../store/conversation";
 import { useSettingsStore } from "../../store/settings";
-import { generateSmartTitle } from "../../lib/smartName";
+import { generateSmartTitle } from "../../lib/smartTitle";
 import { cn } from "@/lib/utils";
 import { useT } from "../../i18n";
 import type { Conversation } from "../../types";
@@ -131,6 +131,7 @@ export function SessionList({
     try {
       const title = await generateSmartTitle(
         conv.messages,
+        ai.apiType,
         ai.apiBaseUrl,
         ai.apiKey,
         ai.model,

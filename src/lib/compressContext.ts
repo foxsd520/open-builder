@@ -1,6 +1,8 @@
+import { generateText } from "ai";
 import type { Message } from "./generator";
 import type { CompressedContext } from "../types";
-import { buildApiUrl } from "./client";
+import type { ApiType } from "./ai-provider";
+import { getProviderModel } from "./ai-provider";
 
 export interface CompressResult {
   summary: string;
@@ -9,6 +11,7 @@ export interface CompressResult {
 
 export async function compressContext(
   messages: Message[],
+  apiType: ApiType,
   apiBaseUrl: string,
   apiKey: string,
   model: string,
@@ -41,23 +44,17 @@ export async function compressContext(
       .join("\n");
   }
 
-  const res = await fetch(buildApiUrl(apiBaseUrl, "/chat/completions"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model,
-      stream: false,
-      messages: [
-        { role: "system", content: "Summarize the following conversation concisely. Focus on: what the user requested, what was built/modified, key decisions, and current project state. Be brief but preserve all information needed to continue." },
-        { role: "user", content: text },
-      ],
-    }),
+  const providerModel = getProviderModel({ apiType, apiBaseUrl, apiKey, model });
+
+  const result = await generateText({
+    model: providerModel,
+    messages: [
+      { role: "system", content: "Summarize the following conversation concisely. Focus on: what the user requested, what was built/modified, key decisions, and current project state. Be brief but preserve all information needed to continue." },
+      { role: "user", content: [{ type: "text", text }] },
+    ],
   });
 
-  if (!res.ok) throw new Error(`Compression failed: ${res.status}`);
-
-  const json = await res.json();
-  const summary = json.choices?.[0]?.message?.content || "";
+  const summary = result.text || "";
 
   return { summary, fromIndex };
 }

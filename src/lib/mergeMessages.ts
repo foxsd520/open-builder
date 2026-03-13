@@ -50,10 +50,20 @@ function getFileAttachments(
     .filter((p) => p.text.startsWith("[File: "))
     .map((p) => {
       // Format: [File: name | size]\ncontent  or  [File: name]\ncontent (legacy)
-      const match = /^\[File: (.+?)(?:\s*\|\s*(\d+))?\]\n([\s\S]*)$/.exec(p.text);
-      return match ? { name: match[1], size: match[2] ? parseInt(match[2], 10) : 0, text: match[3] } : null;
+      const match = /^\[File: (.+?)(?:\s*\|\s*(\d+))?\]\n([\s\S]*)$/.exec(
+        p.text,
+      );
+      return match
+        ? {
+            name: match[1],
+            size: match[2] ? parseInt(match[2], 10) : 0,
+            text: match[3],
+          }
+        : null;
     })
-    .filter((f): f is { name: string; size: number; text: string } => f !== null);
+    .filter(
+      (f): f is { name: string; size: number; text: string } => f !== null,
+    );
 }
 
 export function mergeMessages(messages: Message[]): MergedMessage[] {
@@ -76,7 +86,13 @@ export function mergeMessages(messages: Message[]): MergedMessage[] {
           blocks.push({ type: "image", url, id: `img-${i}-${bi++}` });
         }
         for (const file of getFileAttachments(messages[j].content)) {
-          blocks.push({ type: "file", name: file.name, content: file.text, size: file.size, id: `file-${i}-${bi++}` });
+          blocks.push({
+            type: "file",
+            name: file.name,
+            content: file.text,
+            size: file.size,
+            id: `file-${i}-${bi++}`,
+          });
         }
         j++;
       }
@@ -85,7 +101,8 @@ export function mergeMessages(messages: Message[]): MergedMessage[] {
       }
       i = j - 1;
     } else if (msg.role === "assistant") {
-      const blocks: Block[] = [];
+      const thinkingParts: string[] = [];
+      const otherBlocks: Block[] = [];
       let j = i;
       let bi = 0;
 
@@ -95,16 +112,13 @@ export function mergeMessages(messages: Message[]): MergedMessage[] {
       ) {
         const cur = messages[j];
         if (cur.role === "assistant") {
+          // Collect thinking from all assistant messages to merge later
           if (cur.thinking) {
-            blocks.push({
-              type: "thinking",
-              content: cur.thinking,
-              id: `thinking-${i}-${bi++}`,
-            } as ThinkingBlock);
+            thinkingParts.push(cur.thinking);
           }
           const text = getTextContent(cur.content);
           if (text) {
-            blocks.push({
+            otherBlocks.push({
               type: "text",
               content: text,
               id: `text-${i}-${bi++}`,
@@ -149,7 +163,7 @@ export function mergeMessages(messages: Message[]): MergedMessage[] {
                 title = `${t.tool.found}${(args.urls as string[])?.length ?? 0} ${t.tool.pages}`;
               }
 
-              blocks.push({
+              otherBlocks.push({
                 type: "tool",
                 toolName: tc.function.name,
                 title,
@@ -164,6 +178,17 @@ export function mergeMessages(messages: Message[]): MergedMessage[] {
         }
         j++;
       }
+
+      // Merge all thinking into a single block at the front
+      const blocks: Block[] = [];
+      if (thinkingParts.length > 0) {
+        blocks.push({
+          type: "thinking",
+          content: thinkingParts.join(""),
+          id: `thinking-${i}`,
+        } as ThinkingBlock);
+      }
+      blocks.push(...otherBlocks);
 
       if (blocks.length > 0) {
         merged.push({ role: "assistant", blocks, id: `assistant-${i}` });

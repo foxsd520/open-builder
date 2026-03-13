@@ -16,9 +16,13 @@ export const zh = {
     cancel: "取消",
     save: "保存设置",
     apiKey: { hint: "你的 API 密钥，将保存在浏览器本地存储中" },
+    apiType: {
+      label: "API 类型",
+      hint: "选择 API 服务商类型，不同类型使用不同的请求协议",
+    },
     apiBaseUrl: {
-      hint: "OpenAI 兼容的 API 基础地址，如 https://api.openai.com",
-      preview: "预览：",
+      hint: "API 基础地址",
+      preview: "预览",
     },
     model: {
       label: "模型名称",
